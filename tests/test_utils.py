@@ -1,12 +1,12 @@
 import os
-import sys
 import time
 
 import numpy as np
 
 from hapod import hapod as hp
 
-def prepare_data(fname: str, batch_size: int=100):
+
+def prepare_data(fname: str, batch_size: int = 100):
     """
     Load [fname].npy and perform svd (either exact, or randomized) storing the resulting U and s
     Also, split the matrix in column batches with at most batch_size columns and stores them in
@@ -36,10 +36,11 @@ def prepare_data(fname: str, batch_size: int=100):
             U, s, _ = np.linalg.svd(X, full_matrices=False)
         else:
             from sklearn.utils.extmath import randomized_svd
-            U, s, _ = randomized_svd(X,
-                                    n_components=int(X.shape[1] * .75),
-                                    n_oversamples=100,
-                                    )
+            U, s, _ = randomized_svd(
+                X,
+                n_components=int(X.shape[1] * .75),
+                n_oversamples=100,
+            )
         elapsed_svd += time.perf_counter()
         print(f"U.shape {U.shape}")
         print(f"elapsed_svd {elapsed_svd:.3f} s")
@@ -54,5 +55,3 @@ def prepare_data(fname: str, batch_size: int=100):
         del Xs
 
     return U, s
-
-

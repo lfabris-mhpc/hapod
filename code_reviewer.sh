@@ -1,10 +1,11 @@
 #!/bin/bash
-
-#folders=$( find . -mindepth 2 -name '*.py' ! -path "." ! -path './athena*' ! -path './emukit*' ! -path './ezyrb*' -printf '%h\n' | sort -u )
-folders=( 'hapod' )
+folders=(
+hapod
+tests
+)
 
 echo "processing folders:"
-echo "${folders}"
+echo "${folders[@]}"
 echo ""
 
 home=$( pwd )
@@ -12,7 +13,7 @@ log="code_review.log"
 
 rm -f ${log}
 
-for d in ${folders}
+for d in ${folders[@]}
 do
     if [[ -d "${d}" ]]
     then
