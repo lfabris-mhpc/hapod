@@ -14,7 +14,7 @@ def prepare_data(fname: str, batch_size: int = 100):
 
     :param fname: base name of the numpy array to load
     :type fname: str
-    :param batch_size: _description_, defaults to 100
+    :param batch_size: maximum number of columns in a batch, defaults to 100
     :type batch_size: int, optional
     :return: U 2d matrix of modes, s array of singular values
     :rtype: Tuple[np.ndarray, np.ndarray]
