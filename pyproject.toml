@@ -1,0 +1,28 @@
+#pip install -e . --dry-run
+
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "hapod"
+description = "Hierarchical Approximate Proper Orthogonal Decomposition"
+authors = [{ name = "Lorenzo Fabris", email = "lfabris@sissa.it" }]
+version = "0.0.1"
+readme = "README.md"
+license = { file = "LICENSE" }
+dependencies = ["numpy", "scikit-learn"]
+
+[project.optional-dependencies]
+docs = ["sphinx"]
+tests = ["pytest"]
+
+[tool.setuptools.packages.find]
+include = ["."]
+# exclude = ["GLOB", ...]
+
+[tool.setuptools.package-data]
+# PKG_NAME = ["GLOB", ...]
+
+[tool.setuptools.exclude-package-data]
+# PKG_NAME = ["GLOB", ...]
