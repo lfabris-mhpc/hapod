@@ -4,10 +4,21 @@ import time
 
 import numpy as np
 
-sys.path.append("../hapod")
-import hapod as hp
+from hapod import hapod as hp
 
 def prepare_data(fname: str, batch_size: int=100):
+    """
+    Load [fname].npy and perform svd (either exact, or randomized) storing the resulting U and s
+    Also, split the matrix in column batches with at most batch_size columns and stores them in
+    files [fname]_[i:02d].npy for later use
+
+    :param fname: base name of the numpy array to load
+    :type fname: str
+    :param batch_size: _description_, defaults to 100
+    :type batch_size: int, optional
+    :return: U 2d matrix of modes, s array of singular values
+    :rtype: Tuple[np.ndarray, np.ndarray]
+    """
     U = None
     s = None
 

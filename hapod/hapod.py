@@ -27,11 +27,9 @@ def get_truncation_rank(s: np.ndarray,
     :type s: np.ndarray
     :param rank_max: maximum number of singular values, defaults to None
     :type rank_max: Optional[int], optional
-    :param magnitude_frac_max: discard singular values whose relative magnitude
-    is lower than the given value, defaults to None
+    :param magnitude_frac_max: discard singular values whose relative magnitude is lower than the given value, defaults to None
     :type magnitude_frac_max: Optional[float], optional
-    :param res_energy_frac_max: discard singular values whose cumulative
-    relative energy is lower than the given value, defaults to None
+    :param res_energy_frac_max: discard singular values whose cumulative relative energy is lower than the given value, defaults to None
     :type res_energy_frac_max: Optional[float], optional
     :return: the minimum truncation rank
     :rtype: int
@@ -50,27 +48,25 @@ def get_truncation_rank(s: np.ndarray,
 
     return max(1, rmax)
 
-def get_truncated_svd(A: np.ndarray,
+def get_truncated_svd(X: np.ndarray,
                       rank_max: Optional[int]=None,
                       magnitude_frac_max: Optional[float]=None,
                       res_energy_frac_max: Optional[float]=None) -> Tuple[np.ndarray, np.ndarray]:
     """
     Return the truncated modes matrix and singular values of A
 
-    :param A: a 2d array to be decomposed, assumed A.shape[0] >= A.shape[1]
-    :type A: np.ndarray
+    :param X: a 2d array to be decomposed, assumed A.shape[0] >= A.shape[1]
+    :type X: np.ndarray
     :param rank_max: maximum number of singular values, defaults to None
     :type rank_max: Optional[int], optional
-    :param magnitude_frac_max: discard singular values whose relative magnitude
-    is lower than the given value, defaults to None
+    :param magnitude_frac_max: discard singular values whose relative magnitude is lower than the given value, defaults to None
     :type magnitude_frac_max: Optional[float], optional
-    :param res_energy_frac_max: discard singular values whose cumulative
-    relative energy is lower than the given value, defaults to None
+    :param res_energy_frac_max: discard singular values whose cumulative relative energy is lower than the given value, defaults to None
     :type res_energy_frac_max: Optional[float], optional
     :return: U 2d matrix of modes, s array of singular values
     :rtype: Tuple[np.ndarray, np.ndarray]
     """
-    U, s, _ = np.linalg.svd(A, full_matrices=False)
+    U, s, _ = np.linalg.svd(X, full_matrices=False)
     rmax = get_truncation_rank(s,
                                 rank_max=rank_max,
                                 magnitude_frac_max=magnitude_frac_max,
@@ -78,7 +74,7 @@ def get_truncated_svd(A: np.ndarray,
 
     return U[:, :rmax], s[:rmax]
 
-def get_column_batches(X: np.ndarray, batch: int, debug: bool=False) -> List[np.ndarray]:
+def get_column_batches(X: np.ndarray, batch_size: int, debug: bool=False) -> List[np.ndarray]:
     """
     Split 2d matrix X in a list of submatrices, each with a subset of X's columns
     of size at most batch
@@ -86,23 +82,23 @@ def get_column_batches(X: np.ndarray, batch: int, debug: bool=False) -> List[np.
     :param X: the 2d matrix to be split
     :type X: np.ndarray
     :param batch: maximum number of columns of each submatrix
-    :type batch: int
+    :type batch_size: int
     :param debug: whether to print debug informations, defaults to False
     :type debug: bool, optional
     :return: a list of submatrices of X, each with at most batch columns
     :rtype: List[np.ndarray]
     """
     Xs = []
-    n_batches = int(np.ceil(X.shape[-1] / batch))
+    n_batches = int(np.ceil(X.shape[-1] / batch_size))
     size = int(np.floor(X.shape[-1] / n_batches))
     rest = X.shape[-1] - n_batches * size
     if debug:
-        print(f"len {X.shape[-1]} batch {batch}")
+        print(f"len {X.shape[-1]} batch {batch_size}")
         print(f"n_batches {n_batches} rest {rest} size {size}")
     assert n_batches * size + rest == X.shape[-1]
 
     start = 0
-    for i in range(int(np.ceil(X.shape[-1] / batch))):
+    for i in range(int(np.ceil(X.shape[-1] / batch_size))):
         end = start + size
         if i < rest:
             end += 1
@@ -125,16 +121,13 @@ def hapod(Xs: List[Union[np.ndarray, str]] ,
     Compute a Hierarchical Approximate Proper Orthogonal Decomposition
     of the matrix split in Xs
 
-    :param Xs: list of 2d matrices, or filenames to be loaded,
-    that contain the columns of the matrix to be decomposed
+    :param Xs: list of 2d matrices, or filenames to be loaded, that contain the columns of the matrix to be decomposed
     :type Xs: List[Union[np.ndarray, str]]
     :param rank_max: maximum number of singular values, defaults to None
     :type rank_max: Optional[int], optional
-    :param magnitude_frac_max: discard singular values whose relative magnitude
-    is lower than the given value, defaults to None
+    :param magnitude_frac_max: discard singular values whose relative magnitude is lower than the given value, defaults to None
     :type magnitude_frac_max: Optional[float], optional
-    :param res_energy_frac_max: discard singular values whose cumulative
-    relative energy is lower than the given value, defaults to None
+    :param res_energy_frac_max: discard singular values whose cumulative relative energy is lower than the given value, defaults to None
     :type res_energy_frac_max: Optional[float], optional
     :param svd_impl: implementation of truncated SVD, defaults to get_truncated_svd
     :type svd_impl: Callable[[np.ndarray, Optional[int], Optional[float], Optional[float] ], Tuple[np.ndarray, np.ndarray]], optional
