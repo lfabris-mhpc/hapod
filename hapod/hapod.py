@@ -3,6 +3,7 @@ import time
 
 import numpy as np
 
+
 def get_cumulative_energy_frac(s: np.ndarray) -> np.ndarray:
     """
     Compute cumulative, relative energy of the given array
@@ -15,10 +16,11 @@ def get_cumulative_energy_frac(s: np.ndarray) -> np.ndarray:
     """
     return np.cumsum(s**2) / np.sum(s**2)
 
+
 def get_truncation_rank(s: np.ndarray,
-                        rank_max: Optional[int]=None,
-                        magnitude_frac_max: Optional[float]=None,
-                        res_energy_frac_max: Optional[float]=None) -> int:
+                        rank_max: Optional[int] = None,
+                        magnitude_frac_max: Optional[float] = None,
+                        res_energy_frac_max: Optional[float] = None) -> int:
     """
     Compute the appropriate truncation rank, taken as the minimum
     of the specified thresholds
@@ -39,19 +41,21 @@ def get_truncation_rank(s: np.ndarray,
     if rank_max is not None:
         rmax = min(rmax, rank_max)
     if magnitude_frac_max is not None:
-        r = np.searchsorted(np.flip(s)/np.max(s), magnitude_frac_max)
+        r = np.searchsorted(np.flip(s) / np.max(s), magnitude_frac_max)
         rmax = min(rmax, len(s) - r)
     if res_energy_frac_max is not None:
         e = get_cumulative_energy_frac(s)
-        r = np.searchsorted(np.flip(1-e), res_energy_frac_max)
+        r = np.searchsorted(np.flip(1 - e), res_energy_frac_max)
         rmax = min(rmax, len(s) - r)
 
     return max(1, rmax)
 
-def get_truncated_svd(X: np.ndarray,
-                      rank_max: Optional[int]=None,
-                      magnitude_frac_max: Optional[float]=None,
-                      res_energy_frac_max: Optional[float]=None) -> Tuple[np.ndarray, np.ndarray]:
+
+def get_truncated_svd(
+        X: np.ndarray,
+        rank_max: Optional[int] = None,
+        magnitude_frac_max: Optional[float] = None,
+        res_energy_frac_max: Optional[float] = None) -> Tuple[np.ndarray, np.ndarray]:
     """
     Return the truncated modes matrix and singular values of A
 
@@ -68,13 +72,14 @@ def get_truncated_svd(X: np.ndarray,
     """
     U, s, _ = np.linalg.svd(X, full_matrices=False)
     rmax = get_truncation_rank(s,
-                                rank_max=rank_max,
-                                magnitude_frac_max=magnitude_frac_max,
-                                res_energy_frac_max=res_energy_frac_max)
+                               rank_max=rank_max,
+                               magnitude_frac_max=magnitude_frac_max,
+                               res_energy_frac_max=res_energy_frac_max)
 
     return U[:, :rmax], s[:rmax]
 
-def get_column_batches(X: np.ndarray, batch_size: int, debug: bool=False) -> List[np.ndarray]:
+
+def get_column_batches(X: np.ndarray, batch_size: int, debug: bool = False) -> List[np.ndarray]:
     """
     Split 2d matrix X in a list of submatrices, each with a subset of X's columns
     of size at most batch
@@ -107,16 +112,14 @@ def get_column_batches(X: np.ndarray, batch_size: int, debug: bool=False) -> Lis
 
     return Xs
 
-def hapod(Xs: List[Union[np.ndarray, str]] ,
-            rank_max: Optional[int]=None,
-            magnitude_frac_max: Optional[float]=None,
-            res_energy_frac_max: Optional[float]=None,
-            svd_impl: Callable[[np.ndarray,
-                      Optional[int],
-                      Optional[float],
-                      Optional[float]
-                      ], Tuple[np.ndarray, np.ndarray]]=get_truncated_svd,
-            debug: bool=False) -> Tuple[np.ndarray, np.ndarray]:
+
+def hapod(Xs: List[Union[np.ndarray, str]],
+          rank_max: Optional[int] = None,
+          magnitude_frac_max: Optional[float] = None,
+          res_energy_frac_max: Optional[float] = None,
+          svd_impl: Callable[[np.ndarray, Optional[int], Optional[float], Optional[float]],
+                             Tuple[np.ndarray, np.ndarray]] = get_truncated_svd,
+          debug: bool = False) -> Tuple[np.ndarray, np.ndarray]:
     """
     Compute a Hierarchical Approximate Proper Orthogonal Decomposition
     of the matrix split in Xs
@@ -141,7 +144,7 @@ def hapod(Xs: List[Union[np.ndarray, str]] ,
         if debug:
             print(f"target res_energy_frac_max {res_energy_frac_max}")
         h = np.floor(1 + np.log2(len(Xs)))
-        res_energy_frac_max = 1 - np.power(1 - res_energy_frac_max, 1/h)
+        res_energy_frac_max = 1 - np.power(1 - res_energy_frac_max, 1 / h)
         if debug:
             print(f"estimated height {h}")
             print(f"actual res_energy_frac_max {res_energy_frac_max}")
@@ -155,15 +158,15 @@ def hapod(Xs: List[Union[np.ndarray, str]] ,
 
         elapsed_svd = -time.perf_counter()
         Uu, ss = svd_impl(np.hstack((X1, X2)),
-                        rank_max=rank_max,
-                        magnitude_frac_max=magnitude_frac_max,
-                        res_energy_frac_max=res_energy_frac_max)
+                          rank_max=rank_max,
+                          magnitude_frac_max=magnitude_frac_max,
+                          res_energy_frac_max=res_energy_frac_max)
         elapsed_svd += time.perf_counter()
         if debug:
             print(f"U_svd.shape {Uu.shape}")
             print(f"elapsed_svd {elapsed_svd:.3f} s")
 
-        if not len(Xs):
+        if not Xs:
             return Uu, ss
         Xs.insert(0, Uu * ss[np.newaxis, :])
 
