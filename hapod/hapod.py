@@ -1,4 +1,4 @@
-from typing import Optional, List, Tuple, Union
+from typing import Optional, Callable, Tuple, Union, List
 import time
 
 import numpy as np
@@ -16,9 +16,9 @@ def get_cumulative_energy_frac(s: np.ndarray) -> np.ndarray:
     return np.cumsum(s**2) / np.sum(s**2)
 
 def get_truncation_rank(s: np.ndarray,
-                    rank_max: Optional[int]=None,
-                    magnitude_frac_max: Optional[float]=None,
-                    res_energy_frac_max: Optional[float]=None) -> int:
+                        rank_max: Optional[int]=None,
+                        magnitude_frac_max: Optional[float]=None,
+                        res_energy_frac_max: Optional[float]=None) -> int:
     """
     Compute the appropriate truncation rank, taken as the minimum
     of the specified thresholds
@@ -72,9 +72,9 @@ def get_truncated_svd(A: np.ndarray,
     """
     U, s, _ = np.linalg.svd(A, full_matrices=False)
     rmax = get_truncation_rank(s,
-                            rank_max=rank_max,
-                            magnitude_frac_max=magnitude_frac_max,
-                            res_energy_frac_max=res_energy_frac_max)
+                                rank_max=rank_max,
+                                magnitude_frac_max=magnitude_frac_max,
+                                res_energy_frac_max=res_energy_frac_max)
 
     return U[:, :rmax], s[:rmax]
 
@@ -115,7 +115,11 @@ def hapod(Xs: List[Union[np.ndarray, str]] ,
             rank_max: Optional[int]=None,
             magnitude_frac_max: Optional[float]=None,
             res_energy_frac_max: Optional[float]=None,
-            svd_impl=get_truncated_svd,
+            svd_impl: Callable[[np.ndarray,
+                      Optional[int],
+                      Optional[float],
+                      Optional[float]
+                      ], Tuple[np.ndarray, np.ndarray]]=get_truncated_svd,
             debug: bool=False) -> Tuple[np.ndarray, np.ndarray]:
     """
     Compute a Hierarchical Approximate Proper Orthogonal Decomposition
@@ -133,12 +137,13 @@ def hapod(Xs: List[Union[np.ndarray, str]] ,
     relative energy is lower than the given value, defaults to None
     :type res_energy_frac_max: Optional[float], optional
     :param svd_impl: implementation of truncated SVD, defaults to get_truncated_svd
-    :type svd_impl: _type_, optional
+    :type svd_impl: Callable[[np.ndarray, Optional[int], Optional[float], Optional[float] ], Tuple[np.ndarray, np.ndarray]], optional
     :param debug: whether to print debug informations, defaults to False
     :type debug: bool, optional
     :return: U 2d matrix of modes, s array of singular values
     :rtype: Tuple[np.ndarray, np.ndarray]
     """
+
     if res_energy_frac_max is not None:
         if debug:
             print(f"target res_energy_frac_max {res_energy_frac_max}")
