@@ -3,7 +3,27 @@ import time
 
 import numpy as np
 
-from hapod import hapod as hp
+import hapod as hp
+
+
+def get_trivial_matrix(n: int, m: int) -> np.ndarray:
+    """
+    Generate a (n, m) matrix X such that X[i, i % m] = 1, 0 otherwise
+    The singular values of this matrix are all equal
+
+    :param n: number of rows
+    :type n: int
+    :param m: number of columns
+    :type m: int
+    :return: a (n, m) matrix
+    :rtype: np.ndarray
+    """
+    X = np.zeros((n, m))
+
+    for i in range(n):
+        X[i, i % m] = 1
+
+    return X
 
 
 def prepare_data(fname: str, batch_size: int = 100):
@@ -48,7 +68,7 @@ def prepare_data(fname: str, batch_size: int = 100):
         np.save(f"{fname}_U.npy", U)
         np.save(f"{fname}_s.npy", s)
 
-        Xs = hp.get_column_batches(X, batch=batch_size)
+        Xs = hp.get_column_batches(X, batch_size=batch_size)
         for i, Xx in enumerate(Xs):
             np.save(f"{fname}_{i:02d}.npy", Xx)
 

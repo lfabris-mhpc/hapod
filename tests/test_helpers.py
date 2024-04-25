@@ -1,5 +1,5 @@
 import numpy as np
-from hapod import hapod as hp
+import hapod as hp
 
 
 def test_get_cumulative_energy_frac():

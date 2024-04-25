@@ -177,3 +177,16 @@ def hapod(Xs: List[Union[np.ndarray, str]],
                     print(f"    {x}")
                 else:
                     print(f"    {x.shape}")
+
+    if len(Xs) == 1:
+        X1 = Xs.pop()
+        if isinstance(X1, str):
+            X1 = np.load(X1, mmap_mode="r")
+
+        Uu, ss = svd_impl(X1,
+                          rank_max=rank_max,
+                          magnitude_frac_max=magnitude_frac_max,
+                          res_energy_frac_max=res_energy_frac_max)
+        return Uu, ss
+
+    raise ValueError("Xs is empty")
