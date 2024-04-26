@@ -14,6 +14,9 @@ def get_cumulative_energy_frac(s: np.ndarray) -> np.ndarray:
     :return: an array of same size of s
     :rtype: np.ndarray
     """
+    if not len(s):
+        return np.array([])
+
     return np.cumsum(s**2) / np.sum(s**2)
 
 
@@ -37,6 +40,8 @@ def get_truncation_rank(s: np.ndarray,
     :rtype: int
     """
     rmax = len(s)
+    if not rmax:
+        raise ValueError("empty singular values array")
 
     if rank_max is not None:
         rmax = min(rmax, rank_max)
@@ -140,17 +145,27 @@ def hapod(Xs: List[Union[np.ndarray, str]],
     :rtype: Tuple[np.ndarray, np.ndarray]
     """
 
-    if res_energy_frac_max is not None:
+    Xs_local = list(Xs)
+
+    if res_energy_frac_max is not None and len(Xs_local) > 1:
         if debug:
             print(f"target res_energy_frac_max {res_energy_frac_max}")
-        h = np.floor(1 + np.log2(len(Xs)))
+        h = np.floor(1 + np.log2(len(Xs_local)))
         res_energy_frac_max = 1 - np.power(1 - res_energy_frac_max, 1 / h)
         if debug:
             print(f"estimated height {h}")
             print(f"actual res_energy_frac_max {res_energy_frac_max}")
 
-    while len(Xs) > 1:
-        X1, X2 = Xs.pop(), Xs.pop()
+    if debug:
+        print("Xs")
+        for x in Xs_local:
+            if isinstance(x, str):
+                print(f"    {x}")
+            else:
+                print(f"    {x.shape}")
+
+    while len(Xs_local) > 1:
+        X1, X2 = Xs_local.pop(), Xs_local.pop()
         if isinstance(X1, str):
             X1 = np.load(X1, mmap_mode="r")
         if isinstance(X2, str):
@@ -166,20 +181,20 @@ def hapod(Xs: List[Union[np.ndarray, str]],
             print(f"U_svd.shape {Uu.shape}")
             print(f"elapsed_svd {elapsed_svd:.3f} s")
 
-        if not Xs:
+        if not Xs_local:
             return Uu, ss
-        Xs.insert(0, Uu * ss[np.newaxis, :])
+        Xs_local.insert(0, Uu * ss[np.newaxis, :])
 
         if debug:
             print("Xs")
-            for x in Xs:
+            for x in Xs_local:
                 if isinstance(x, str):
                     print(f"    {x}")
                 else:
                     print(f"    {x.shape}")
 
-    if len(Xs) == 1:
-        X1 = Xs.pop()
+    if len(Xs_local) == 1:
+        X1 = Xs_local.pop()
         if isinstance(X1, str):
             X1 = np.load(X1, mmap_mode="r")
 

@@ -1,12 +1,22 @@
 import numpy as np
+import pytest
 
 import hapod as hp
+
+
+def test_get_cumulative_energy_frac_empty():
+    assert np.empty(hp.get_cumulative_energy_frac(np.array([])))
 
 
 def test_get_cumulative_energy_frac():
     s = np.flip(np.linspace(1, 11, 11))
     e = hp.get_cumulative_energy_frac(s)
     assert np.all(np.isclose(e, np.cumsum(s**2) / np.sum(s**2)))
+
+
+def test_get_truncation_rank_empty():
+    with pytest.raises(ValueError):
+        hp.get_truncation_rank(np.array([]), rank_max=6)
 
 
 def test_get_truncation_rank_rank_max():
