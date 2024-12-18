@@ -23,7 +23,7 @@ rng = np.random.default_rng()
 elapsed_snapshots = -time.perf_counter()
 snapshots_fnames = []
 for i in range(n_cols):
-    snapshot_fname = os.path.join(work_dir, f"snapshot_{i:04d}.npy")
+    snapshot_fname = os.path.join(snapshots_dir, f"snapshot_{i:04d}.npy")
     np.save(snapshot_fname, rng.random((n_rows, 1)))
 
     snapshots_fnames.append(snapshot_fname)
