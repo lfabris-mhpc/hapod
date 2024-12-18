@@ -1,7 +1,12 @@
-from typing import Optional, Callable, Tuple, Union, List
+import os
+import shutil
+import tempfile
 import time
+from typing import Optional, Callable, Tuple, Union, List
 
 import numpy as np
+
+from .utils import TensorLoader, NumpyLoader, is_file_in_dir
 
 
 def get_cumulative_energy_ratios(s: np.ndarray) -> np.ndarray:
@@ -83,38 +88,38 @@ def get_pod(X: np.ndarray,
     return U[:, :rmax], s[:rmax]
 
 
-def get_column_batches(X: np.ndarray, batch_size: int, debug: bool = False) -> List[np.ndarray]:
-    """
-    Split 2d matrix X in a list of submatrices, each with a subset of X's columns
-    of size at most batch
+# def get_column_batches(X: np.ndarray, batch_size: int, debug: bool = False) -> List[np.ndarray]:
+#     """
+#     Split 2d matrix X in a list of submatrices, each with a subset of X's columns
+#     of size at most batch
 
-    :param X: the 2d matrix to be split
-    :type X: np.ndarray
-    :param batch: maximum number of columns of each submatrix
-    :type batch_size: int
-    :param debug: whether to print debug informations, defaults to False
-    :type debug: bool, optional
-    :return: a list of submatrices of X, each with at most batch columns
-    :rtype: List[np.ndarray]
-    """
-    Xs = []
-    n_batches = int(np.ceil(X.shape[-1] / batch_size))
-    size = int(np.floor(X.shape[-1] / n_batches))
-    rest = X.shape[-1] - n_batches * size
-    if debug:
-        print(f"len {X.shape[-1]} batch {batch_size}")
-        print(f"n_batches {n_batches} rest {rest} size {size}")
-    assert n_batches * size + rest == X.shape[-1]
+#     :param X: the 2d matrix to be split
+#     :type X: np.ndarray
+#     :param batch: maximum number of columns of each submatrix
+#     :type batch_size: int
+#     :param debug: whether to print debug informations, defaults to False
+#     :type debug: bool, optional
+#     :return: a list of submatrices of X, each with at most batch columns
+#     :rtype: List[np.ndarray]
+#     """
+#     Xs = []
+#     n_batches = int(np.ceil(X.shape[-1] / batch_size))
+#     size = int(np.floor(X.shape[-1] / n_batches))
+#     rest = X.shape[-1] - n_batches * size
+#     if debug:
+#         print(f"len {X.shape[-1]} batch {batch_size}")
+#         print(f"n_batches {n_batches} rest {rest} size {size}")
+#     assert n_batches * size + rest == X.shape[-1]
 
-    start = 0
-    for i in range(int(np.ceil(X.shape[-1] / batch_size))):
-        end = start + size
-        if i < rest:
-            end += 1
-        Xs.append(X[:, start:end])
-        start = end
+#     start = 0
+#     for i in range(int(np.ceil(X.shape[-1] / batch_size))):
+#         end = start + size
+#         if i < rest:
+#             end += 1
+#         Xs.append(X[:, start:end])
+#         start = end
 
-    return Xs
+#     return Xs
 
 
 def hapod(Xs: List[Union[np.ndarray, str]],
@@ -123,7 +128,9 @@ def hapod(Xs: List[Union[np.ndarray, str]],
           res_energy_ratio_max: Optional[float] = None,
           pod_impl: Callable[[np.ndarray, Optional[int], Optional[float], Optional[float]],
                              Tuple[np.ndarray, np.ndarray]] = get_pod,
-          debug: bool = False) -> Tuple[np.ndarray, np.ndarray]:
+          loader: Optional[TensorLoader] = None,
+          out_dir: Optional[str] = None,
+          verbose: bool = False) -> Tuple[np.ndarray, np.ndarray]:
     """
     Compute a Hierarchical Approximate Proper Orthogonal Decomposition
     of the matrix split in Xs
@@ -138,24 +145,30 @@ def hapod(Xs: List[Union[np.ndarray, str]],
     :type res_energy_ratio_max: Optional[float], optional
     :param svd_impl: implementation of truncated SVD, defaults to get_truncated_svd
     :type svd_impl: Callable[[np.ndarray, Optional[int], Optional[float], Optional[float] ], Tuple[np.ndarray, np.ndarray]], optional
-    :param debug: whether to print debug informations, defaults to False
-    :type debug: bool, optional
+    :param verbose: whether to print debug informations, defaults to False
+    :type verbose: bool, optional
     :return: U 2d matrix of modes, s array of singular values
     :rtype: Tuple[np.ndarray, np.ndarray]
     """
 
+    if loader is None:
+        loader = NumpyLoader("")
+
+    if not Xs:
+        raise ValueError("list of chunks is empty")
+
     Xs_local = list(Xs)
 
     if res_energy_ratio_max is not None and len(Xs_local) > 1:
-        if debug:
+        if verbose:
             print(f"target res_energy_ratio_max {res_energy_ratio_max}")
         h = np.floor(1 + np.log2(len(Xs_local)))
         res_energy_ratio_max = 1 - np.power(1 - res_energy_ratio_max, 1 / h)
-        if debug:
+        if verbose:
             print(f"estimated height {h}")
             print(f"actual res_energy_ratio_max {res_energy_ratio_max}")
 
-    if debug:
+    if verbose:
         print("Xs")
         for x in Xs_local:
             if isinstance(x, str):
@@ -163,45 +176,86 @@ def hapod(Xs: List[Union[np.ndarray, str]],
             else:
                 print(f"    {x.shape}")
 
-    while len(Xs_local) > 1:
-        X1, X2 = Xs_local.pop(0), Xs_local.pop(0)
-        if isinstance(X1, str):
-            X1 = np.load(X1, mmap_mode="r")
-        if isinstance(X2, str):
-            X2 = np.load(X2, mmap_mode="r")
+    work_dir = out_dir
+    if work_dir is None:
+        work_dir = tempfile.mkdtemp()
 
-        elapsed_svd = -time.perf_counter()
-        Uu, ss = pod_impl(np.hstack((X1, X2)),
-                          rank_max=rank_max,
-                          magnitude_ratio_max=magnitude_ratio_max,
-                          res_energy_ratio_max=res_energy_ratio_max)
-        elapsed_svd += time.perf_counter()
-        if debug:
-            print(f"U_svd.shape {Uu.shape}")
-            print(f"elapsed_svd {elapsed_svd:.3f} s")
+    merged_fnames = set()
 
-        if not Xs_local:
-            return Uu, ss
+    def cleanup():
+        for f in merged_fnames:
+            if os.path.exists(f):
+                os.remove(f)
 
-        Xs_local.append(Uu * ss[np.newaxis, :])
+        if work_dir is not out_dir:
+            shutil.rmtree(work_dir, ignore_errors=True)
 
-        if debug:
-            print("Xs")
-            for x in Xs_local:
-                if isinstance(x, str):
-                    print(f"    {x}")
-                else:
-                    print(f"    {x.shape}")
+    try:
+        while len(Xs_local) > 1:
+            X1_source = Xs_local.pop(0)
+            X2_source = Xs_local.pop(0)
 
-    if len(Xs_local) == 1:
-        X1 = Xs_local.pop()
-        if isinstance(X1, str):
-            X1 = np.load(X1, mmap_mode="r")
+            X1 = loader.load(X1_source)
+            X2 = loader.load(X2_source)
+            if verbose:
+                print(f"X1.shape {X1.shape}")
+                print(f"X2.shape {X2.shape}")
 
-        Uu, ss = pod_impl(X1,
-                          rank_max=rank_max,
-                          magnitude_ratio_max=magnitude_ratio_max,
-                          res_energy_ratio_max=res_energy_ratio_max)
-        return Uu, ss
+            elapsed_svd = -time.perf_counter()
+            Uu, ss = pod_impl(np.concatenate((X1, X2), axis=1),
+                              rank_max=rank_max,
+                              magnitude_ratio_max=magnitude_ratio_max,
+                              res_energy_ratio_max=res_energy_ratio_max)
+            elapsed_svd += time.perf_counter()
+            if verbose:
+                print(f"U.shape {Uu.shape}")
+                print(f"elapsed {elapsed_svd:.3f}")
 
-    raise ValueError("Xs is empty")
+            del X1
+            del X2
+
+            if not Xs_local:
+                cleanup()
+
+                return Uu, ss
+
+            merged_fname = os.path.join(work_dir, f"merged_{len(merged_fnames)}.npy")
+            X_tilde = Uu * ss[np.newaxis, :]
+            np.save(merged_fname, X_tilde)
+            merged_fnames.add(merged_fname)
+            del X_tilde
+
+            try:
+                if X1_source in merged_fnames:
+                    os.remove(X1_source)
+            except:
+                pass
+            try:
+                if X2_source in merged_fnames:
+                    os.remove(X2_source)
+            except:
+                pass
+
+            Xs_local.append(merged_fname)
+
+            if verbose:
+                print("Xs")
+                for x in Xs_local:
+                    if isinstance(x, str):
+                        print(f"    {x}")
+                    else:
+                        print(f"    {x.shape}")
+
+        if len(Xs_local) == 1:
+            X1 = loader.load(Xs_local.pop())
+
+            Uu, ss = pod_impl(X1,
+                              rank_max=rank_max,
+                              magnitude_ratio_max=magnitude_ratio_max,
+                              res_energy_ratio_max=res_energy_ratio_max)
+
+            del X1
+    finally:
+        cleanup()
+
+    return Uu, ss
