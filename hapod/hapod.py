@@ -187,7 +187,7 @@ def hapod(Xs: List[Union[np.ndarray, str]],
                 print(f"    {source_repr(X1_source)} {X1.shape}")
                 print(f"    {source_repr(X2_source)} {X2.shape}")
 
-            elapsed_svd = -time.perf_counter()
+            elapsed_pod = -time.perf_counter()
             X = np.concatenate((X1, X2), axis=1)
             del X1
             del X2
@@ -197,16 +197,19 @@ def hapod(Xs: List[Union[np.ndarray, str]],
                 magnitude_ratio_max = None
                 res_energy_ratio_max = None
 
+                if verbose:
+                    print(f"    skip last truncation")
+
             Uu, ss = pod_impl(X,
                               rank_max=rank_max,
                               magnitude_ratio_max=magnitude_ratio_max,
                               res_energy_ratio_max=res_energy_ratio_max)
             del X
 
-            elapsed_svd += time.perf_counter()
+            elapsed_pod += time.perf_counter()
             if verbose:
                 print(f"    U.shape {Uu.shape}")
-                print(f"    took {elapsed_svd:.3f}")
+                print(f"    took {elapsed_pod:.3f}")
 
             if not Xs_local:
                 cleanup()
@@ -258,15 +261,15 @@ def hapod(Xs: List[Union[np.ndarray, str]],
                 if verbose:
                     print(f"    skip last truncation")
 
-            elapsed_svd = -time.perf_counter()
+            elapsed_pod = -time.perf_counter()
             Uu, ss = pod_impl(X1,
                               rank_max=rank_max,
                               magnitude_ratio_max=magnitude_ratio_max,
                               res_energy_ratio_max=res_energy_ratio_max)
-            elapsed_svd += time.perf_counter()
+            elapsed_pod += time.perf_counter()
             if verbose:
                 print(f"    U.shape {Uu.shape}")
-                print(f"    took {elapsed_svd:.3f}")
+                print(f"    took {elapsed_pod:.3f}")
 
             del X1
     finally:
