@@ -156,6 +156,8 @@ def hapod(Xs: List[Union[np.ndarray, str]],
     work_dir = temp_work_dir
     if work_dir is None:
         work_dir = tempfile.mkdtemp()
+    else:
+        os.makedirs(work_dir, exist_ok=True)
 
     merged_fnames = set()
 
@@ -201,6 +203,8 @@ def hapod(Xs: List[Union[np.ndarray, str]],
 
             merged_fname = os.path.join(work_dir, f"merged_{len(merged_fnames)}.npy")
             X_tilde = Uu * ss[np.newaxis, :]
+            del Uu
+            del ss
             np.save(merged_fname, X_tilde)
             merged_fnames.add(merged_fname)
             del X_tilde
