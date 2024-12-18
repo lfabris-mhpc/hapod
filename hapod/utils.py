@@ -146,7 +146,7 @@ class NumpyLoader(MatrixLoader):
                                 f"Unsupported .npy format version in {self.npz_fieldname}")
 
                         header = np.lib.format.read_array_header_1_0(fin)
-                        return header[0], header[1]
+                        return header[0], header[2]
 
             with open(source, "rb") as fin:
                 magic = np.lib.format.read_magic(fin)
@@ -154,7 +154,7 @@ class NumpyLoader(MatrixLoader):
                     raise ValueError("Unsupported .npy format version")
 
                 header = np.lib.format.read_array_header_1_0(fin)
-                return header[0], header[1]
+                return header[0], header[2]
 
         raise TypeError("Source must be either a string (file path) or a numpy.ndarray.")
 
