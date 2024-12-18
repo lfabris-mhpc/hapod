@@ -3,6 +3,7 @@ import platform
 import subprocess
 from abc import ABC, abstractmethod
 from typing import List, Optional, Tuple, Union
+import zipfile
 
 import numpy as np
 
@@ -125,6 +126,38 @@ class NumpyLoader(MatrixLoader):
         """
         self.npz_fieldname = npz_fieldname
 
+    def peek(self, source):
+        if isinstance(source, np.ndarray):
+            return source.shape, source.dtype
+
+        if isinstance(source, str):
+            if not os.path.isfile(source):
+                raise FileNotFoundError(f"File not found: {source}")
+
+            if source.endswith(".npz"):
+                with zipfile.ZipFile(source, "r") as archive:
+                    if self.npz_fieldname is None or self.npz_fieldname not in archive.namelist():
+                        raise ValueError(f"Field {self.npz_fieldname} not found in the .npz file.")
+
+                    with archive.open(self.npz_fieldname) as fin:
+                        magic = np.lib.format.read_magic(fin)
+                        if magic[0] != 1:
+                            raise ValueError(
+                                f"Unsupported .npy format version in {self.npz_fieldname}")
+
+                        header = np.lib.format.read_array_header_1_0(fin)
+                        return header[0], header[1]
+
+            with open(source, "rb") as fin:
+                magic = np.lib.format.read_magic(fin)
+                if magic[0] != 1:
+                    raise ValueError("Unsupported .npy format version")
+
+                header = np.lib.format.read_array_header_1_0(fin)
+                return header[0], header[1]
+
+        raise TypeError("Source must be either a string (file path) or a numpy.ndarray.")
+
     def load(self, source):
         if isinstance(source, np.ndarray):
             return source
@@ -187,6 +220,8 @@ def make_chunks(
     if loader is None:
         loader = NumpyLoader("")
 
+    snapshot_shape, snapshot_dtype = loader.peek(sources[0])
+
     chunk_fnames = []
     i_source = 0
     for i_chunk in range(n_chunks):
@@ -194,7 +229,7 @@ def make_chunks(
         if i_chunk < n_sources % n_chunks:
             chunk_size += 1
 
-        chunk = []
+        chunk = np.empty((np.prod(snapshot_shape), chunk_size), dtype=snapshot_dtype)
         for source in sources[i_source:i_source + chunk_size]:
             chunk.append(loader.load(source).reshape(-1, 1))
 
