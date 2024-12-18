@@ -4,14 +4,14 @@ import time
 import numpy as np
 
 
-def get_cumulative_energy_frac(s: np.ndarray) -> np.ndarray:
+def get_cumulative_energy_ratios(s: np.ndarray) -> np.ndarray:
     """
     Compute cumulative, relative energy of the given array
     of singular values
 
     :param s: array of singular values, sorted desc
     :type s: np.ndarray
-    :return: an array of same size of s
+    :return: an array of same size as s
     :rtype: np.ndarray
     """
     if not len(s):
@@ -22,20 +22,20 @@ def get_cumulative_energy_frac(s: np.ndarray) -> np.ndarray:
 
 def get_truncation_rank(s: np.ndarray,
                         rank_max: Optional[int] = None,
-                        magnitude_frac_max: Optional[float] = None,
-                        res_energy_frac_max: Optional[float] = None) -> int:
+                        magnitude_ratio_max: Optional[float] = None,
+                        res_energy_ratio_max: Optional[float] = None) -> int:
     """
-    Compute the appropriate truncation rank, taken as the minimum
+    Compute the appropriate truncation rank, taken as the tightest
     of the specified thresholds
 
     :param s: array of singular values, sorted desc
     :type s: np.ndarray
     :param rank_max: maximum number of singular values, defaults to None
     :type rank_max: Optional[int], optional
-    :param magnitude_frac_max: discard singular values whose relative magnitude is lower than the given value, defaults to None
-    :type magnitude_frac_max: Optional[float], optional
-    :param res_energy_frac_max: discard singular values whose cumulative relative energy is lower than the given value, defaults to None
-    :type res_energy_frac_max: Optional[float], optional
+    :param magnitude_ratio_max: discard singular values whose relative magnitude is lower than the given value, defaults to None
+    :type magnitude_ratio_max: Optional[float], optional
+    :param res_energy_ratio_max: discard singular values whose cumulative relative energy is lower than the given value, defaults to None
+    :type res_energy_ratio_max: Optional[float], optional
     :return: the minimum truncation rank
     :rtype: int
     """
@@ -45,22 +45,21 @@ def get_truncation_rank(s: np.ndarray,
 
     if rank_max is not None:
         rmax = min(rmax, rank_max)
-    if magnitude_frac_max is not None:
-        r = np.searchsorted(np.flip(s) / np.max(s), magnitude_frac_max)
+    if magnitude_ratio_max is not None:
+        r = np.searchsorted(np.flip(s) / np.max(s), magnitude_ratio_max)
         rmax = min(rmax, len(s) - r)
-    if res_energy_frac_max is not None:
-        e = get_cumulative_energy_frac(s)
-        r = np.searchsorted(np.flip(1 - e), res_energy_frac_max)
+    if res_energy_ratio_max is not None:
+        e = get_cumulative_energy_ratios(s)
+        r = np.searchsorted(np.flip(1 - e), res_energy_ratio_max)
         rmax = min(rmax, len(s) - r)
 
     return max(1, rmax)
 
 
-def get_truncated_svd(
-        X: np.ndarray,
-        rank_max: Optional[int] = None,
-        magnitude_frac_max: Optional[float] = None,
-        res_energy_frac_max: Optional[float] = None) -> Tuple[np.ndarray, np.ndarray]:
+def get_pod(X: np.ndarray,
+            rank_max: Optional[int] = None,
+            magnitude_ratio_max: Optional[float] = None,
+            res_energy_ratio_max: Optional[float] = None) -> Tuple[np.ndarray, np.ndarray]:
     """
     Return the truncated modes matrix and singular values of A
 
@@ -68,18 +67,18 @@ def get_truncated_svd(
     :type X: np.ndarray
     :param rank_max: maximum number of singular values, defaults to None
     :type rank_max: Optional[int], optional
-    :param magnitude_frac_max: discard singular values whose relative magnitude is lower than the given value, defaults to None
-    :type magnitude_frac_max: Optional[float], optional
-    :param res_energy_frac_max: discard singular values whose cumulative relative energy is lower than the given value, defaults to None
-    :type res_energy_frac_max: Optional[float], optional
+    :param magnitude_ratio_max: discard singular values whose relative magnitude is lower than the given value, defaults to None
+    :type magnitude_ratio_max: Optional[float], optional
+    :param res_energy_ratio_max: discard singular values whose cumulative relative energy is lower than the given value, defaults to None
+    :type res_energy_ratio_max: Optional[float], optional
     :return: U 2d matrix of modes, s array of singular values
     :rtype: Tuple[np.ndarray, np.ndarray]
     """
     U, s, _ = np.linalg.svd(X, full_matrices=False)
     rmax = get_truncation_rank(s,
                                rank_max=rank_max,
-                               magnitude_frac_max=magnitude_frac_max,
-                               res_energy_frac_max=res_energy_frac_max)
+                               magnitude_ratio_max=magnitude_ratio_max,
+                               res_energy_ratio_max=res_energy_ratio_max)
 
     return U[:, :rmax], s[:rmax]
 
@@ -120,10 +119,10 @@ def get_column_batches(X: np.ndarray, batch_size: int, debug: bool = False) -> L
 
 def hapod(Xs: List[Union[np.ndarray, str]],
           rank_max: Optional[int] = None,
-          magnitude_frac_max: Optional[float] = None,
-          res_energy_frac_max: Optional[float] = None,
-          svd_impl: Callable[[np.ndarray, Optional[int], Optional[float], Optional[float]],
-                             Tuple[np.ndarray, np.ndarray]] = get_truncated_svd,
+          magnitude_ratio_max: Optional[float] = None,
+          res_energy_ratio_max: Optional[float] = None,
+          pod_impl: Callable[[np.ndarray, Optional[int], Optional[float], Optional[float]],
+                             Tuple[np.ndarray, np.ndarray]] = get_pod,
           debug: bool = False) -> Tuple[np.ndarray, np.ndarray]:
     """
     Compute a Hierarchical Approximate Proper Orthogonal Decomposition
@@ -133,10 +132,10 @@ def hapod(Xs: List[Union[np.ndarray, str]],
     :type Xs: List[Union[np.ndarray, str]]
     :param rank_max: maximum number of singular values, defaults to None
     :type rank_max: Optional[int], optional
-    :param magnitude_frac_max: discard singular values whose relative magnitude is lower than the given value, defaults to None
-    :type magnitude_frac_max: Optional[float], optional
-    :param res_energy_frac_max: discard singular values whose cumulative relative energy is lower than the given value, defaults to None
-    :type res_energy_frac_max: Optional[float], optional
+    :param magnitude_ratio_max: discard singular values whose relative magnitude is lower than the given value, defaults to None
+    :type magnitude_ratio_max: Optional[float], optional
+    :param res_energy_ratio_max: discard singular values whose cumulative relative energy is lower than the given value, defaults to None
+    :type res_energy_ratio_max: Optional[float], optional
     :param svd_impl: implementation of truncated SVD, defaults to get_truncated_svd
     :type svd_impl: Callable[[np.ndarray, Optional[int], Optional[float], Optional[float] ], Tuple[np.ndarray, np.ndarray]], optional
     :param debug: whether to print debug informations, defaults to False
@@ -147,14 +146,14 @@ def hapod(Xs: List[Union[np.ndarray, str]],
 
     Xs_local = list(Xs)
 
-    if res_energy_frac_max is not None and len(Xs_local) > 1:
+    if res_energy_ratio_max is not None and len(Xs_local) > 1:
         if debug:
-            print(f"target res_energy_frac_max {res_energy_frac_max}")
+            print(f"target res_energy_ratio_max {res_energy_ratio_max}")
         h = np.floor(1 + np.log2(len(Xs_local)))
-        res_energy_frac_max = 1 - np.power(1 - res_energy_frac_max, 1 / h)
+        res_energy_ratio_max = 1 - np.power(1 - res_energy_ratio_max, 1 / h)
         if debug:
             print(f"estimated height {h}")
-            print(f"actual res_energy_frac_max {res_energy_frac_max}")
+            print(f"actual res_energy_ratio_max {res_energy_ratio_max}")
 
     if debug:
         print("Xs")
@@ -165,17 +164,17 @@ def hapod(Xs: List[Union[np.ndarray, str]],
                 print(f"    {x.shape}")
 
     while len(Xs_local) > 1:
-        X1, X2 = Xs_local.pop(), Xs_local.pop()
+        X1, X2 = Xs_local.pop(0), Xs_local.pop(0)
         if isinstance(X1, str):
             X1 = np.load(X1, mmap_mode="r")
         if isinstance(X2, str):
             X2 = np.load(X2, mmap_mode="r")
 
         elapsed_svd = -time.perf_counter()
-        Uu, ss = svd_impl(np.hstack((X1, X2)),
+        Uu, ss = pod_impl(np.hstack((X1, X2)),
                           rank_max=rank_max,
-                          magnitude_frac_max=magnitude_frac_max,
-                          res_energy_frac_max=res_energy_frac_max)
+                          magnitude_ratio_max=magnitude_ratio_max,
+                          res_energy_ratio_max=res_energy_ratio_max)
         elapsed_svd += time.perf_counter()
         if debug:
             print(f"U_svd.shape {Uu.shape}")
@@ -183,7 +182,8 @@ def hapod(Xs: List[Union[np.ndarray, str]],
 
         if not Xs_local:
             return Uu, ss
-        Xs_local.insert(0, Uu * ss[np.newaxis, :])
+
+        Xs_local.append(Uu * ss[np.newaxis, :])
 
         if debug:
             print("Xs")
@@ -198,10 +198,10 @@ def hapod(Xs: List[Union[np.ndarray, str]],
         if isinstance(X1, str):
             X1 = np.load(X1, mmap_mode="r")
 
-        Uu, ss = svd_impl(X1,
+        Uu, ss = pod_impl(X1,
                           rank_max=rank_max,
-                          magnitude_frac_max=magnitude_frac_max,
-                          res_energy_frac_max=res_energy_frac_max)
+                          magnitude_ratio_max=magnitude_ratio_max,
+                          res_energy_ratio_max=res_energy_ratio_max)
         return Uu, ss
 
     raise ValueError("Xs is empty")
