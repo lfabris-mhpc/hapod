@@ -6,7 +6,7 @@ from typing import Optional, Callable, Tuple, Union, List
 
 import numpy as np
 
-from .utils import TensorLoader, NumpyLoader, is_file_in_dir
+from .utils import MatrixLoader, NumpyLoader
 
 
 def get_cumulative_energy_ratios(s: np.ndarray) -> np.ndarray:
@@ -66,9 +66,9 @@ def get_pod(X: np.ndarray,
             magnitude_ratio_max: Optional[float] = None,
             res_energy_ratio_max: Optional[float] = None) -> Tuple[np.ndarray, np.ndarray]:
     """
-    Return the truncated modes matrix and singular values of A
+    Return the truncated modes matrix and singular values of X
 
-    :param X: a 2d array to be decomposed, assumed A.shape[0] >= A.shape[1]
+    :param X: a 2d array to be decomposed, assumed X.shape[0] >= X.shape[1]
     :type X: np.ndarray
     :param rank_max: maximum number of singular values, defaults to None
     :type rank_max: Optional[int], optional
@@ -88,67 +88,44 @@ def get_pod(X: np.ndarray,
     return U[:, :rmax], s[:rmax]
 
 
-# def get_column_batches(X: np.ndarray, batch_size: int, debug: bool = False) -> List[np.ndarray]:
-#     """
-#     Split 2d matrix X in a list of submatrices, each with a subset of X's columns
-#     of size at most batch
-
-#     :param X: the 2d matrix to be split
-#     :type X: np.ndarray
-#     :param batch: maximum number of columns of each submatrix
-#     :type batch_size: int
-#     :param debug: whether to print debug informations, defaults to False
-#     :type debug: bool, optional
-#     :return: a list of submatrices of X, each with at most batch columns
-#     :rtype: List[np.ndarray]
-#     """
-#     Xs = []
-#     n_batches = int(np.ceil(X.shape[-1] / batch_size))
-#     size = int(np.floor(X.shape[-1] / n_batches))
-#     rest = X.shape[-1] - n_batches * size
-#     if debug:
-#         print(f"len {X.shape[-1]} batch {batch_size}")
-#         print(f"n_batches {n_batches} rest {rest} size {size}")
-#     assert n_batches * size + rest == X.shape[-1]
-
-#     start = 0
-#     for i in range(int(np.ceil(X.shape[-1] / batch_size))):
-#         end = start + size
-#         if i < rest:
-#             end += 1
-#         Xs.append(X[:, start:end])
-#         start = end
-
-#     return Xs
-
-
 def hapod(Xs: List[Union[np.ndarray, str]],
           rank_max: Optional[int] = None,
           magnitude_ratio_max: Optional[float] = None,
           res_energy_ratio_max: Optional[float] = None,
           pod_impl: Callable[[np.ndarray, Optional[int], Optional[float], Optional[float]],
                              Tuple[np.ndarray, np.ndarray]] = get_pod,
-          loader: Optional[TensorLoader] = None,
-          out_dir: Optional[str] = None,
+          loader: Optional[MatrixLoader] = None,
+          temp_work_dir: Optional[str] = None,
           verbose: bool = False) -> Tuple[np.ndarray, np.ndarray]:
     """
-    Compute a Hierarchical Approximate Proper Orthogonal Decomposition
-    of the matrix split in Xs
+    Computes a Hierarchical Approximate Proper Orthogonal Decomposition of the matrix split in Xs.
+    The splits are merged in pairs, decomposed, and the resulting approximation is truncated.
+    The matrix is then stored on disk, and its filename inserted in a queue for further merging.
+    The memory footprint is kept at the minimum according to the truncation criteria.
 
-    :param Xs: list of 2d matrices, or filenames to be loaded, that contain the columns of the matrix to be decomposed
-    :type Xs: List[Union[np.ndarray, str]]
-    :param rank_max: maximum number of singular values, defaults to None
-    :type rank_max: Optional[int], optional
-    :param magnitude_ratio_max: discard singular values whose relative magnitude is lower than the given value, defaults to None
-    :type magnitude_ratio_max: Optional[float], optional
-    :param res_energy_ratio_max: discard singular values whose cumulative relative energy is lower than the given value, defaults to None
-    :type res_energy_ratio_max: Optional[float], optional
-    :param svd_impl: implementation of truncated SVD, defaults to get_truncated_svd
-    :type svd_impl: Callable[[np.ndarray, Optional[int], Optional[float], Optional[float] ], Tuple[np.ndarray, np.ndarray]], optional
-    :param verbose: whether to print debug informations, defaults to False
-    :type verbose: bool, optional
-    :return: U 2d matrix of modes, s array of singular values
-    :rtype: Tuple[np.ndarray, np.ndarray]
+    Args:
+        Xs (List[Union[np.ndarray, str]]): list of 2d matrices, and/or filenames to be loaded, 
+            that contain the columns of the matrix to be decomposed
+        rank_max (Optional[int], optional): maximum number of singular values. Defaults to None.
+        magnitude_ratio_max (Optional[float], optional): discard singular values whose relative 
+            magnitude is lower than the given value. Defaults to None.
+        res_energy_ratio_max (Optional[float], optional): discard singular values whose 
+            cumulative relative energy is lower than the given value. Defaults to None.
+        pod_impl (Callable[[np.ndarray, Optional[int], Optional[float], Optional[float]], 
+            Tuple[np.ndarray, np.ndarray]], optional): implementation of POD taking a matrix 
+                and the same truncation criteria. Defaults to get_pod.
+        loader (Optional[TensorLoader], optional): loader instance to interpret a split when 
+            it is not a np.ndarray. If None, it uses NumpyLoader. Defaults to None.
+        temp_work_dir (Optional[str], optional): output directory where the temporary merged 
+            files are stored. If None, a temporary directory is created. 
+            All files created by hapod will be removed. Defaults to None.
+        verbose (bool, optional): whether to print diagnostic messages. Defaults to False.
+
+    Raises:
+        ValueError: ValueError if Xs is empty
+
+    Returns:
+        Tuple[np.ndarray, np.ndarray]: U 2d matrix of modes as columns, s array of singular values
     """
 
     if loader is None:
@@ -176,7 +153,7 @@ def hapod(Xs: List[Union[np.ndarray, str]],
             else:
                 print(f"    {x.shape}")
 
-    work_dir = out_dir
+    work_dir = temp_work_dir
     if work_dir is None:
         work_dir = tempfile.mkdtemp()
 
@@ -187,7 +164,7 @@ def hapod(Xs: List[Union[np.ndarray, str]],
             if os.path.exists(f):
                 os.remove(f)
 
-        if work_dir is not out_dir:
+        if work_dir is not temp_work_dir:
             shutil.rmtree(work_dir, ignore_errors=True)
 
     try:

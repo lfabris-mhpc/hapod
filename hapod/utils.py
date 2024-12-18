@@ -5,11 +5,31 @@ from typing import List, Optional, Tuple, Union
 import numpy as np
 
 
-def matrix_memory_footprint(shape: Tuple[int], dtype: np.dtype = np.float64):
+def matrix_memory_footprint(shape: Tuple[int], dtype: np.dtype = np.float64) -> int:
+    """
+    Computes the memory taken by a matrix with given shape and dtype, in bytes
+
+    Args:
+        shape (Tuple[int]): shape of the matrix
+        dtype (np.dtype, optional): dtype of the matrix. Defaults to np.float64.
+
+    Returns:
+        int: bytes used by the given matrix
+    """
     return np.prod(shape) * np.dtype(dtype).itemsize
 
 
-def svd_memory_footprint(shape: Tuple[int], dtype: np.dtype = np.float64):
+def svd_memory_footprint(shape: Tuple[int], dtype: np.dtype = np.float64) -> int:
+    """
+    Computes the memory required by the svd of a matrix with given shape and dtype, in bytes
+
+    Args:
+        shape (Tuple[int]): shape of the matrix
+        dtype (np.dtype, optional): dtype of the matrix. Defaults to np.float64.
+
+    Returns:
+        int: bytes used by the SVD of the given matrix
+    """
     return 2 * shape[-1] * (np.prod(shape[:-1]) + shape[-1]) * np.dtype(dtype).itemsize
 
 
@@ -18,7 +38,21 @@ def random_matrix(n_rows: int,
                   n_rank: int,
                   out: Optional[np.ndarray] = None,
                   rand_gen: Optional[np.random.Generator] = None,
-                  dtype: np.dtype = np.float64):
+                  dtype: np.dtype = np.float64) -> np.ndarray:
+    """
+    Generates a random matrix with the required shape and rank
+
+    Args:
+        n_rows (int): number of rows in the output
+        n_columns (int): number of columns in the output
+        n_rank (int): rank of the resulting matrix
+        out (Optional[np.ndarray], optional): Output argument. This must have the exact kind that would be returned if it was not used. In particular, it must have the right type, must be C-contiguous, and its dtype must be dtype. Defaults to None.
+        rand_gen (Optional[np.random.Generator], optional): random generator to use. If None, uses np.random.default_rng(). Defaults to None.
+        dtype (np.dtype, optional): dtype of the matrix. Defaults to np.float64.
+
+    Returns:
+        np.ndarray: output matrix
+    """
     if rand_gen is None:
         rand_gen = np.random.default_rng()
 
@@ -26,21 +60,35 @@ def random_matrix(n_rows: int,
                   rand_gen.random((min(n_rank, n_rows, n_columns), n_columns), dtype=dtype), out)
 
 
-def is_file_in_dir(fname: str, dirname: str):
-    fpath = os.path.abspath(fname)
-    dpath = os.path.abspath(dirname)
-
-    return os.path.commonpath([fpath, dpath]) == dpath
-
-
-class TensorLoader(ABC):
+class MatrixLoader(ABC):
+    """
+    Abstract base class for loading matrices during hapod
+    """
     @abstractmethod
     def load(self, source: Union[np.ndarray, str]) -> np.ndarray:
+        """
+        Loads a np.ndarray from the given source
+
+        Args:
+            source (Union[np.ndarray, str]): either a np.ndarray, or a string representation of the source
+
+        Returns:
+            np.ndarray: the loaded np.ndarray
+        """
         pass
 
 
-class NumpyLoader(TensorLoader):
+class NumpyLoader(MatrixLoader):
+    """
+    MatrixLoader specialization to handle numpy .npy and .npz files
+    """
     def __init__(self, npz_fieldname: Optional[str] = None):
+        """
+        Initialization
+
+        Args:
+            npz_fieldname (Optional[str], optional): the name of the array to be loaded when handling .npz files. Defaults to None.
+        """
         self.npz_fieldname = npz_fieldname
 
     def load(self, source):
@@ -70,15 +118,28 @@ def make_chunks(
     output_dir: str,
     n_chunks: Optional[int] = None,
     n_chunk_max_cols: Optional[int] = None,
-    loader: Optional[TensorLoader] = None,
+    loader: Optional[MatrixLoader] = None,
 ) -> List[str]:
-    #compute actual n_chunks and/or chunk_cols
+    """
+    Helper function to aggregate sources (interpreted as columns) into a list of chunked files.
+    Loaded matrices are flattened before being concatenated in a chunk.
+    Exactly one of n_chunks and n_chunk_max_cols must be specified.
+    Returns the list of filenames created.
+
+    Args:
+        sources (List[Union[str, np.ndarray]]): list of columns, given as np.ndarray and/or source strings to be passed to the loader
+        output_dir (str): output directory that will contain the files created
+        n_chunks (Optional[int], optional): number of chunks to create. Defaults to None.
+        n_chunk_max_cols (Optional[int], optional): maximum number of columns of a chunk. Defaults to None.
+        loader (Optional[MatrixLoader], optional): loader instance to interpret a split when it is not a np.ndarray. If None, it uses NumpyLoader. Defaults to None.
+
+    Returns:
+        List[str]: list of filenames created
+    """
     n_sources = len(sources)
 
     if n_chunks is None and n_chunk_max_cols is None:
-        raise ValueError(
-            "invalid specification for chunking: either n_chunks or n_chunk_max_cols must be given"
-        )
+        raise ValueError("exactly one of n_chunks and n_chunk_max_cols must be specified")
 
     if n_chunks is None:
         n_chunks = n_sources // n_chunk_max_cols
