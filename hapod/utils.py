@@ -230,8 +230,8 @@ def make_chunks(
             chunk_size += 1
 
         chunk = np.empty((np.prod(snapshot_shape), chunk_size), dtype=snapshot_dtype)
-        for source in sources[i_source:i_source + chunk_size]:
-            chunk.append(loader.load(source).reshape(-1, 1))
+        for j, source in enumerate(sources[i_source:i_source + chunk_size]):
+            chunk[:, j] = loader.load(source).reshape(-1, 1)
 
         chunk = np.concatenate(tuple(chunk), axis=1)
 
