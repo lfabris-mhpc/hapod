@@ -9,6 +9,7 @@ import numpy as np
 import hapod as hp
 
 work_dir = "/scratch/lfabris/hapod_test"
+hapod_tmp_dir = "/scratch/lfabris/hapod_test/hapod_tmp"
 
 snapshots_dir = os.path.join(work_dir, "snapshots")
 os.makedirs(snapshots_dir, exist_ok=True)
@@ -42,7 +43,10 @@ elapsed_chunks += time.perf_counter()
 print(f"created {len(chunks_fnames)} column chunks files in {elapsed_chunks:.3f}")
 
 elapsed_hapod = -time.perf_counter()
-Uu, ss = hp.hapod(chunks_fnames, rank_max=n_chunk_max_cols, verbose=False)
+Uu, ss = hp.hapod(chunks_fnames,
+                  rank_max=n_chunk_max_cols,
+                  temp_work_dir=hapod_tmp_dir,
+                  verbose=False)
 elapsed_hapod += time.perf_counter()
 
 print(f"finished hapod in {elapsed_hapod:.3f}")
