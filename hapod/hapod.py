@@ -179,17 +179,20 @@ def hapod(Xs: List[Union[np.ndarray, str]],
                 print(f"X2.shape {X2.shape}")
 
             elapsed_svd = -time.perf_counter()
-            Uu, ss = pod_impl(np.concatenate((X1, X2), axis=1),
+            X = np.concatenate((X1, X2), axis=1)
+            del X1
+            del X2
+
+            Uu, ss = pod_impl(X,
                               rank_max=rank_max,
                               magnitude_ratio_max=magnitude_ratio_max,
                               res_energy_ratio_max=res_energy_ratio_max)
+            del X
+            
             elapsed_svd += time.perf_counter()
             if verbose:
                 print(f"U.shape {Uu.shape}")
                 print(f"elapsed {elapsed_svd:.3f}")
-
-            del X1
-            del X2
 
             if not Xs_local:
                 cleanup()

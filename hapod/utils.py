@@ -1,9 +1,40 @@
 import os
+import platform
+import subprocess
 from abc import ABC, abstractmethod
 from typing import List, Optional, Tuple, Union
 
 import numpy as np
 
+def ram_size() -> int:
+    """
+    Try to retrieve the amount of RAM available to the current machine
+
+    Returns:
+        int: RAM in bytes
+    """
+    system = platform.system()
+
+    if system == "Linux":
+        with open("/proc/meminfo", "r") as f:
+            for line in f:
+                if line.startswith("MemTotal"):
+                    mem_total_kb = int(line.split()[1])
+                    return mem_total_kb * 2**10
+
+    elif system == "Darwin":
+        # macOS
+        result = subprocess.run(["sysctl", "hw.memsize"], stdout=subprocess.PIPE)
+        mem_size_bytes = int(result.stdout.decode().split(":")[1].strip())
+        return mem_size_bytes
+
+    elif system == "Windows":
+        result = subprocess.run(["wmic", "computersystem", "get", "TotalPhysicalMemory"], stdout=subprocess.PIPE)
+        mem_size_bytes = int(result.stdout.decode().split("\n")[1].strip())
+        return mem_size_bytes
+
+    else:
+        raise OSError("Unsupported OS")
 
 def matrix_memory_footprint(shape: Tuple[int], dtype: np.dtype = np.float64) -> int:
     """
@@ -30,7 +61,7 @@ def svd_memory_footprint(shape: Tuple[int], dtype: np.dtype = np.float64) -> int
     Returns:
         int: bytes used by the SVD of the given matrix
     """
-    return 2 * shape[-1] * (np.prod(shape[:-1]) + shape[-1]) * np.dtype(dtype).itemsize
+    return 2 * 2 * shape[-1] * (np.prod(shape[:-1]) + shape[-1]) * np.dtype(dtype).itemsize
 
 
 def random_matrix(n_rows: int,
@@ -100,7 +131,7 @@ class NumpyLoader(MatrixLoader):
                 raise FileNotFoundError(f"File not found: {source}")
 
             if source.endswith(".npz"):
-                loaded = np.load(source)
+                loaded = np.load(source, mmap_mode="r")
                 if self.npz_fieldname is None or self.npz_fieldname not in loaded:
                     raise ValueError(f"Field {self.npz_fieldname} not found in the .npz file.")
                 return loaded[self.npz_fieldname]
