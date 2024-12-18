@@ -96,6 +96,7 @@ def hapod(Xs: List[Union[np.ndarray, str]],
                              Tuple[np.ndarray, np.ndarray]] = get_pod,
           loader: Optional[MatrixLoader] = None,
           temp_work_dir: Optional[str] = None,
+          skip_last_truncation: bool = False,
           verbose: bool = False) -> Tuple[np.ndarray, np.ndarray]:
     """
     Computes a Hierarchical Approximate Proper Orthogonal Decomposition of the matrix split in Xs.
@@ -119,6 +120,8 @@ def hapod(Xs: List[Union[np.ndarray, str]],
         temp_work_dir (Optional[str], optional): output directory where the temporary merged 
             files are stored. If None, a temporary directory is created. 
             All files created by hapod will be removed. Defaults to None.
+        skip_last_truncation (bool, optional): whether to skip truncation of the bases and singular 
+            values on the last merge. Defaults to False.
         verbose (bool, optional): whether to print diagnostic messages. Defaults to False.
 
     Raises:
@@ -142,16 +145,19 @@ def hapod(Xs: List[Union[np.ndarray, str]],
         h = np.floor(1 + np.log2(len(Xs_local)))
         res_energy_ratio_max = 1 - np.power(1 - res_energy_ratio_max, 1 / h)
         if verbose:
-            print(f"estimated height {h}")
+            print(f"estimated height {h} of the merge tree")
             print(f"actual res_energy_ratio_max {res_energy_ratio_max}")
+
+    def source_repr(x: Union[np.ndarray, str]) -> str:
+        if isinstance(x, np.ndarray):
+            return str(x.shape)
+
+        return x
 
     if verbose:
         print("Xs")
         for x in Xs_local:
-            if isinstance(x, str):
-                print(f"    {x}")
-            else:
-                print(f"    {x.shape}")
+            print(f"    {source_repr(x)}")
 
     work_dir = temp_work_dir
     if work_dir is None:
@@ -177,13 +183,19 @@ def hapod(Xs: List[Union[np.ndarray, str]],
             X1 = loader.load(X1_source)
             X2 = loader.load(X2_source)
             if verbose:
-                print(f"X1.shape {X1.shape}")
-                print(f"X2.shape {X2.shape}")
+                print(f"merging ")
+                print(f"    {source_repr(X1_source)} {X1.shape}")
+                print(f"    {source_repr(X2_source)} {X2.shape}")
 
             elapsed_svd = -time.perf_counter()
             X = np.concatenate((X1, X2), axis=1)
             del X1
             del X2
+
+            if not Xs_local and skip_last_truncation:
+                rank_max = None
+                magnitude_ratio_max = None
+                res_energy_ratio_max = None
 
             Uu, ss = pod_impl(X,
                               rank_max=rank_max,
@@ -193,8 +205,8 @@ def hapod(Xs: List[Union[np.ndarray, str]],
 
             elapsed_svd += time.perf_counter()
             if verbose:
-                print(f"U.shape {Uu.shape}")
-                print(f"elapsed {elapsed_svd:.3f}")
+                print(f"    U.shape {Uu.shape}")
+                print(f"    took {elapsed_svd:.3f}")
 
             if not Xs_local:
                 cleanup()
@@ -208,6 +220,9 @@ def hapod(Xs: List[Union[np.ndarray, str]],
             np.save(merged_fname, X_tilde)
             merged_fnames.add(merged_fname)
             del X_tilde
+
+            if verbose:
+                print(f"    POD approximation in {merged_fname}")
 
             try:
                 if X1_source in merged_fnames:
@@ -225,18 +240,33 @@ def hapod(Xs: List[Union[np.ndarray, str]],
             if verbose:
                 print("Xs")
                 for x in Xs_local:
-                    if isinstance(x, str):
-                        print(f"    {x}")
-                    else:
-                        print(f"    {x.shape}")
+                    print(f"    {source_repr(x)}")
 
         if len(Xs_local) == 1:
-            X1 = loader.load(Xs_local.pop())
+            X1_source = Xs_local.pop(0)
+            X1 = loader.load(X1_source)
 
+            if verbose:
+                print(f"last chunk")
+                print(f"    {source_repr(X1_source)} {X1.shape}")
+
+            if skip_last_truncation:
+                rank_max = None
+                magnitude_ratio_max = None
+                res_energy_ratio_max = None
+
+                if verbose:
+                    print(f"    skip last truncation")
+
+            elapsed_svd = -time.perf_counter()
             Uu, ss = pod_impl(X1,
                               rank_max=rank_max,
                               magnitude_ratio_max=magnitude_ratio_max,
                               res_energy_ratio_max=res_energy_ratio_max)
+            elapsed_svd += time.perf_counter()
+            if verbose:
+                print(f"    U.shape {Uu.shape}")
+                print(f"    took {elapsed_svd:.3f}")
 
             del X1
     finally:
