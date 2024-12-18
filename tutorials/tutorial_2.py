@@ -1,4 +1,5 @@
 import os
+import time
 import shutil
 import tempfile
 
@@ -14,44 +15,39 @@ os.makedirs(snapshots_dir, exist_ok=True)
 
 n_rows = 3600000
 n_cols = 1000
+n_max_svd_cols = 135
+n_chunk_max_cols = n_max_svd_cols // 2
 
 rng = np.random.default_rng()
 
-# X = hp.random_matrix(n_rows, n_cols, n_cols)
-
-# snapshots_fnames = []
-# for i, x in enumerate(np.array_split(X, n_cols, axis=1)):
-#     snapshot_fname = os.path.join(work_dir, f"snapshot_{i:04d}.npy")
-#     np.save(snapshot_fname, x)
-
-#     snapshots_fnames.append(snapshot_fname)
-
-# del X
-
+elapsed_snapshots = -time.perf_counter()
 snapshots_fnames = []
 for i in range(n_cols):
     snapshot_fname = os.path.join(work_dir, f"snapshot_{i:04d}.npy")
     np.save(snapshot_fname, rng.random((n_rows, 1)))
 
     snapshots_fnames.append(snapshot_fname)
-
-print(f"created {len(snapshots_fnames)} snapshot files")
+elapsed_snapshots += time.perf_counter()
+print(f"created {len(snapshots_fnames)} snapshot files in {elapsed_snapshots:.3f}")
 
 chunks_dir = os.path.join(work_dir, "chunks")
 
+elapsed_chunks = -time.perf_counter()
 chunks_fnames = hp.make_chunks(
     snapshots_fnames,
     chunks_dir,
-    n_chunk_max_cols=20,
+    n_chunk_max_cols=n_chunk_max_cols,
 )
+elapsed_chunks += time.perf_counter()
+print(f"created {len(chunks_fnames)} column chunks files in {elapsed_chunks:.3f}")
 
-print(f"created {len(chunks_fnames)} column chunks files")
+elapsed_hapod = -time.perf_counter()
+Uu, ss = hp.hapod(chunks_fnames, rank_max=n_chunk_max_cols, verbose=False)
+elapsed_hapod += time.perf_counter()
 
-Uu, ss = hp.hapod(chunks_fnames, rank_max=11, verbose=False)
-
-print(f"finished hapod")
+print(f"finished hapod in {elapsed_hapod:.3f}")
 print(f"    U.shape {Uu.shape}")
 print(f"    ss.shape {ss.shape}")
 
-# shutil.rmtree(snapshots_dir)
-# shutil.rmtree(chunks_dir)
+shutil.rmtree(snapshots_dir)
+shutil.rmtree(chunks_dir)

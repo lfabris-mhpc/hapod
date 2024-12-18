@@ -188,7 +188,7 @@ def hapod(Xs: List[Union[np.ndarray, str]],
                               magnitude_ratio_max=magnitude_ratio_max,
                               res_energy_ratio_max=res_energy_ratio_max)
             del X
-            
+
             elapsed_svd += time.perf_counter()
             if verbose:
                 print(f"U.shape {Uu.shape}")

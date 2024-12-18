@@ -6,6 +6,7 @@ from typing import List, Optional, Tuple, Union
 
 import numpy as np
 
+
 def ram_size() -> int:
     """
     Try to retrieve the amount of RAM available to the current machine
@@ -29,12 +30,14 @@ def ram_size() -> int:
         return mem_size_bytes
 
     elif system == "Windows":
-        result = subprocess.run(["wmic", "computersystem", "get", "TotalPhysicalMemory"], stdout=subprocess.PIPE)
+        result = subprocess.run(["wmic", "computersystem", "get", "TotalPhysicalMemory"],
+                                stdout=subprocess.PIPE)
         mem_size_bytes = int(result.stdout.decode().split("\n")[1].strip())
         return mem_size_bytes
 
     else:
         raise OSError("Unsupported OS")
+
 
 def matrix_memory_footprint(shape: Tuple[int], dtype: np.dtype = np.float64) -> int:
     """
