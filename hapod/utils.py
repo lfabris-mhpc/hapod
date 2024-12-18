@@ -231,9 +231,7 @@ def make_chunks(
 
         chunk = np.empty((np.prod(snapshot_shape), chunk_size), dtype=snapshot_dtype)
         for j, source in enumerate(sources[i_source:i_source + chunk_size]):
-            chunk[:, j] = loader.load(source).reshape(-1, 1)
-
-        chunk = np.concatenate(tuple(chunk), axis=1)
+            chunk[:, j] = loader.load(source).flatten()
 
         chunk_fname = os.path.join(output_dir, f"chunk_{i_chunk:04d}.npy")
         np.save(chunk_fname, chunk)

@@ -1,4 +1,5 @@
 import os
+import sys
 import time
 import shutil
 import tempfile
@@ -9,15 +10,21 @@ import numpy as np
 import hapod as hp
 
 work_dir = "/scratch/lfabris/hapod_test"
-hapod_tmp_dir = "/scratch/lfabris/hapod_test/hapod_tmp"
+hapod_tmp_dir = "/scratch/lfabris/hapod_test/tmp"
 
 snapshots_dir = os.path.join(work_dir, "snapshots")
 os.makedirs(snapshots_dir, exist_ok=True)
 
 n_rows = 3600000
-n_cols = 1000
-n_max_svd_cols = 135
+n_max_svd_cols = 130
+n_cols = n_max_svd_cols * 2
 n_chunk_max_cols = n_max_svd_cols // 2
+
+print(f"simulating snapshot matrix with size {(n_rows, n_cols)}")
+print(
+    f"storing {hp.matrix_memory_footprint((n_rows, n_cols)) / 2**30:.3f} GB worth of column snapshots"
+)
+print(f"chunks will collect {n_chunk_max_cols} columns each")
 
 rng = np.random.default_rng()
 
@@ -46,12 +53,16 @@ elapsed_hapod = -time.perf_counter()
 Uu, ss = hp.hapod(chunks_fnames,
                   rank_max=n_chunk_max_cols,
                   temp_work_dir=hapod_tmp_dir,
-                  verbose=False)
+                  skip_last_truncation=True,
+                  verbose=True)
 elapsed_hapod += time.perf_counter()
 
 print(f"finished hapod in {elapsed_hapod:.3f}")
 print(f"    U.shape {Uu.shape}")
 print(f"    ss.shape {ss.shape}")
 
-shutil.rmtree(snapshots_dir)
-shutil.rmtree(chunks_dir)
+np.save(os.path.join(work_dir, "U.npy"), Uu)
+np.save(os.path.join(work_dir, "s.npy"), ss)
+
+#shutil.rmtree(snapshots_dir)
+#shutil.rmtree(chunks_dir)
