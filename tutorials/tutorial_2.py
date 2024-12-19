@@ -10,7 +10,7 @@ import numpy as np
 import hapod as hp
 
 work_dir = "/scratch/lfabris/hapod_test"
-hapod_tmp_dir = "/scratch/lfabris/hapod_test/tmp"
+hapod_tmp_dir = os.path.join(work_dir, "tmp")
 
 snapshots_dir = os.path.join(work_dir, "snapshots")
 os.makedirs(snapshots_dir, exist_ok=True)
@@ -22,7 +22,7 @@ n_chunk_max_cols = n_max_svd_cols // 2
 
 print(f"simulating snapshot matrix with size {(n_rows, n_cols)}")
 print(
-    f"storing {hp.matrix_memory_footprint((n_rows, n_cols)) / 2**30:.3f} GB worth of column snapshots"
+    f"storing {hp.get_matrix_memory_footprint((n_rows, n_cols)) / 2**30:.3f} GB worth of column snapshots"
 )
 print(f"chunks will collect {n_chunk_max_cols} columns each")
 

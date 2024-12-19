@@ -8,7 +8,7 @@ import zipfile
 import numpy as np
 
 
-def ram_size() -> int:
+def get_memory_size() -> int:
     """
     Try to retrieve the amount of RAM available to the current machine
 
@@ -40,7 +40,7 @@ def ram_size() -> int:
         raise OSError("Unsupported OS")
 
 
-def matrix_memory_footprint(shape: Tuple[int], dtype: np.dtype = np.float64) -> int:
+def get_matrix_memory_footprint(shape: Tuple[int], dtype: np.dtype = np.float64) -> int:
     """
     Computes the memory taken by a matrix with given shape and dtype, in bytes
 
@@ -54,7 +54,7 @@ def matrix_memory_footprint(shape: Tuple[int], dtype: np.dtype = np.float64) -> 
     return np.prod(shape) * np.dtype(dtype).itemsize
 
 
-def svd_memory_footprint(shape: Tuple[int], dtype: np.dtype = np.float64) -> int:
+def get_svd_memory_footprint(shape: Tuple[int], dtype: np.dtype = np.float64) -> int:
     """
     Computes the memory required by the svd of a matrix with given shape and dtype, in bytes
 
@@ -65,11 +65,40 @@ def svd_memory_footprint(shape: Tuple[int], dtype: np.dtype = np.float64) -> int
     Returns:
         int: bytes used by the SVD of the given matrix
     """
-    return 2 * 2 * shape[-1] * (np.prod(shape[:-1]) + shape[-1]) * np.dtype(dtype).itemsize
+    v_size = min(shape[-2], shape[-1])
+    return 2.18 * (np.prod(shape) +
+                   (np.prod(shape) // v_size) * v_size + v_size) * np.dtype(dtype).itemsize
+
+
+def get_max_svd_columns(n_rows: int,
+                        memory_limit: Optional[int] = None,
+                        dtype: np.dtype = np.float64) -> int:
+    if memory_limit is None:
+        memory_limit = get_memory_size()
+    itemsize = np.dtype(dtype).itemsize
+
+    lb = 1
+    ub = int(memory_limit) // (itemsize * n_rows)
+    while (ub - lb) > 0:
+        n_cols = (ub + lb + 1) // 2
+        ram_req = get_svd_memory_footprint((n_rows, n_cols), dtype)
+
+        if ram_req > memory_limit:
+            ub = n_cols - 1
+        elif ram_req < memory_limit:
+            lb = n_cols
+        else:
+            return n_cols
+
+    return lb
+
+
+def get_n_chunks_balanced(n_cols: int, n_chunk_max_cols: int) -> int:
+    return 2**int(np.ceil(np.log2(n_cols / n_chunk_max_cols)))
 
 
 def random_matrix(n_rows: int,
-                  n_columns: int,
+                  n_cols: int,
                   n_rank: int,
                   out: Optional[np.ndarray] = None,
                   rand_gen: Optional[np.random.Generator] = None,
@@ -79,7 +108,7 @@ def random_matrix(n_rows: int,
 
     Args:
         n_rows (int): number of rows in the output
-        n_columns (int): number of columns in the output
+        n_cols (int): number of columns in the output
         n_rank (int): rank of the resulting matrix
         out (Optional[np.ndarray], optional): Output argument. This must have the exact kind that would be returned if it was not used. In particular, it must have the right type, must be C-contiguous, and its dtype must be dtype. Defaults to None.
         rand_gen (Optional[np.random.Generator], optional): random generator to use. If None, uses np.random.default_rng(). Defaults to None.
@@ -91,14 +120,28 @@ def random_matrix(n_rows: int,
     if rand_gen is None:
         rand_gen = np.random.default_rng()
 
-    return np.dot(rand_gen.random((n_rows, min(n_rank, n_rows, n_columns)), dtype=dtype),
-                  rand_gen.random((min(n_rank, n_rows, n_columns), n_columns), dtype=dtype), out)
+    return np.dot(rand_gen.random((n_rows, min(n_rank, n_rows, n_cols)), dtype=dtype),
+                  rand_gen.random((min(n_rank, n_rows, n_cols), n_cols), dtype=dtype), out)
 
 
 class MatrixLoader(ABC):
     """
     Abstract base class for loading matrices during hapod
     """
+    @abstractmethod
+    def peek(self, source: Union[np.ndarray, str]) -> Tuple[Tuple[int], np.dtype]:
+        """
+        Retrieve the shape and dtype of the source array, 
+        possibly without loading the entire file in memory
+
+        Args:
+            source (Union[np.ndarray, str]): either a np.ndarray, or a string representation of the source
+
+        Returns:
+            Tuple[Tuple[int], np.dtype]: shape and dtype of the source
+        """
+        pass
+
     @abstractmethod
     def load(self, source: Union[np.ndarray, str]) -> np.ndarray:
         """
@@ -242,3 +285,73 @@ def make_chunks(
         i_source += chunk_size
 
     return chunk_fnames
+
+
+def get_cumulative_energy_ratios(s: np.ndarray) -> np.ndarray:
+    """
+    Compute cumulative, relative energy of the given array
+    of singular values
+
+    :param s: array of singular values, sorted desc
+    :type s: np.ndarray
+    :return: an array of same size as s
+    :rtype: np.ndarray
+    """
+    if not len(s):
+        return np.array([])
+
+    return np.cumsum(s**2) / np.sum(s**2)
+
+
+def get_truncation_rank(s: np.ndarray,
+                        rank_max: Optional[int] = None,
+                        magnitude_ratio_max: Optional[float] = None,
+                        res_energy_ratio_max: Optional[float] = None) -> int:
+    """
+    Compute the appropriate truncation rank, taken as the tightest
+    of the specified thresholds
+
+    :param s: array of singular values, sorted desc
+    :type s: np.ndarray
+    :param rank_max: maximum number of singular values, defaults to None
+    :type rank_max: Optional[int], optional
+    :param magnitude_ratio_max: discard singular values whose relative magnitude is lower than the given value, defaults to None
+    :type magnitude_ratio_max: Optional[float], optional
+    :param res_energy_ratio_max: discard singular values whose cumulative relative energy is lower than the given value, defaults to None
+    :type res_energy_ratio_max: Optional[float], optional
+    :return: the minimum truncation rank
+    :rtype: int
+    """
+    rmax = len(s)
+    if not rmax:
+        raise ValueError("empty singular values array")
+
+    if rank_max is not None:
+        rmax = min(rmax, rank_max)
+    if magnitude_ratio_max is not None:
+        r = np.searchsorted(np.flip(s) / np.max(s), magnitude_ratio_max)
+        rmax = min(rmax, len(s) - r)
+    if res_energy_ratio_max is not None:
+        e = get_cumulative_energy_ratios(s)
+        r = np.searchsorted(np.flip(1 - e), res_energy_ratio_max)
+        rmax = min(rmax, len(s) - r)
+
+    return max(1, rmax)
+
+
+def get_pod(X: np.ndarray, rank_max: Optional[int] = None) -> Tuple[np.ndarray, np.ndarray]:
+    """
+    Return the truncated modes matrix and singular values of X using numpy.linalg.svd
+
+    :param X: a 2d array to be decomposed, assumed X.shape[0] >= X.shape[1]
+    :type X: np.ndarray
+    :param rank_max: maximum number of singular values, defaults to None
+    :type rank_max: Optional[int], optional
+    :return: U 2d matrix of modes, s array of singular values
+    :rtype: Tuple[np.ndarray, np.ndarray]
+    """
+    U, s, _ = np.linalg.svd(X, full_matrices=False)
+    if rank_max is None:
+        rank_max = len(s)
+
+    return U[:, :rank_max], s[:rank_max]

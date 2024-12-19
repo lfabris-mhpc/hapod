@@ -13,13 +13,13 @@ n_cols = 136
 
 # %%
 
-ram_avail = hp.ram_size() / 2**30
+ram_avail = hp.get_memory_size() / 2**30
 print(f"available ram {ram_avail:.2f}")
 
-ram_matrix = hp.matrix_memory_footprint((n_rows, n_cols)) / 2**30
+ram_matrix = hp.get_matrix_memory_footprint((n_rows, n_cols)) / 2**30
 print(f"matrix ram {ram_matrix:.2f}")
 
-ram_svd = hp.svd_memory_footprint((n_rows, n_cols)) / 2**30
+ram_svd = hp.get_svd_memory_footprint((n_rows, n_cols)) / 2**30
 print(f"svd ram {ram_svd:.2f}")
 
 # %%
