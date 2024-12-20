@@ -434,6 +434,9 @@ def randomized_POD(
     serializer: Optional[MatrixSerializer] = None,
     randomizer_rng: Optional[np.random.Generator] = None,
 ):
+    if serializer is None:
+        serializer = NumpySerializer("")
+
     shape, dtype = serializer.peek(sources[0])
     n_rows = math.prod(shape)
     n_cols = len(sources)
