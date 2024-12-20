@@ -1,8 +1,8 @@
 import os
 import platform
-import random
 import subprocess
 import zipfile
+import math
 from abc import ABC, abstractmethod
 from typing import List, Optional, Tuple, Union
 
@@ -67,8 +67,8 @@ def get_svd_memory_footprint(shape: Tuple[int], dtype: np.dtype = np.float64) ->
         int: bytes used by the SVD of the given matrix
     """
     v_size = min(shape[-2], shape[-1])
-    return 2.18 * (np.prod(shape) +
-                   (np.prod(shape) // v_size) * v_size + v_size) * np.dtype(dtype).itemsize
+    return 2.18 * (math.prod(shape) +
+                   (math.prod(shape) // v_size) * v_size + v_size) * np.dtype(dtype).itemsize
 
 
 def get_max_svd_columns(n_rows: int,
@@ -94,7 +94,30 @@ def get_max_svd_columns(n_rows: int,
     return lb
 
 
-def get_n_chunks_balanced(n_cols: int, n_chunk_max_cols: int) -> int:
+def get_max_svd_square(memory_limit: Optional[int] = None, dtype: np.dtype = np.float64) -> int:
+    if memory_limit is None:
+        memory_limit = get_memory_size()
+    itemsize = np.dtype(dtype).itemsize
+
+    lb = 1
+    ub = int(memory_limit) // itemsize
+    while (ub - lb) > 0:
+        n_cols = (ub + lb + 1) // 2
+        ram_req = get_svd_memory_footprint((n_cols, n_cols), dtype)
+
+        # print(f"bounds {lb, ub}")
+        # print(n_cols)
+        if ram_req > memory_limit:
+            ub = n_cols - 1
+        elif ram_req < memory_limit:
+            lb = n_cols
+        else:
+            return n_cols
+
+    return lb
+
+
+def get_n_chunks_fulltree(n_cols: int, n_chunk_max_cols: int) -> int:
     return 2**int(np.ceil(np.log2(n_cols / n_chunk_max_cols)))
 
 
@@ -403,3 +426,29 @@ def get_pod(X: np.ndarray, rank_max: Optional[int] = None) -> Tuple[np.ndarray, 
         rank_max = len(s)
 
     return U[:, :rank_max], s[:rank_max]
+
+
+def randomized_POD(
+    sources: List[Union[str, np.ndarray]],
+    rank_max: int,
+    serializer: Optional[MatrixSerializer] = None,
+    randomizer_rng: Optional[np.random.Generator] = None,
+):
+    shape, dtype = serializer.peek(sources[0])
+    n_rows = math.prod(shape)
+    n_cols = len(sources)
+    random_samples = randomizer_rng.choice(n_cols, rank_max, replace=False)
+
+    Z = np.empty((n_rows, rank_max), dtype=dtype)
+    for i, j in enumerate(random_samples):
+        Z[:, i] = serializer.load(sources[j]).flatten()
+
+    Q, _ = np.linalg.qr(Z)
+    Y = np.empty((rank_max, n_cols), dtype=dtype)
+    for i, source in enumerate(sources):
+        Y[:, i] = Q.T @ serializer.load(source).flatten()
+
+    Uy, s, _ = np.linalg.svd(Y, full_matrices=False)
+    U = Q @ Uy
+
+    return U, s
