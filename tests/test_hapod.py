@@ -8,7 +8,7 @@ from test_utils import *
 def test_hapod_list_0():
     Xs = []
     with pytest.raises(ValueError):
-        hp.hapod(Xs, rank_max=0)
+        hp.hapod(Xs, chunk_rank_max=0)
 
 
 def test_hapod_list_1(n_rows: int = 1000, n_cols: int = 100, rank_max: int = 100):

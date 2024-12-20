@@ -124,7 +124,7 @@ def random_matrix(n_rows: int,
                   rand_gen.random((min(n_rank, n_rows, n_cols), n_cols), dtype=dtype), out)
 
 
-class MatrixLoader(ABC):
+class MatrixSerializer(ABC):
     """
     Abstract base class for loading matrices during hapod
     """
@@ -155,8 +155,40 @@ class MatrixLoader(ABC):
         """
         pass
 
+    @abstractmethod
+    def store(self, X: np.ndarray, basename: str) -> Union[np.ndarray, str]:
+        """
+        Store the given array using the given basename if needed.
+        Return the source identifier that will be used in the future to load back the array.
 
-class NumpyLoader(MatrixLoader):
+        Args:
+            X (np.ndarray): the array to store
+            basename (str): the basename to interpret and possibly modify
+
+        Returns:
+            Union[np.ndarray, str]: either the array, if kept in memory, or a string to be fed to the load method
+        """
+        pass
+
+
+class InMemorySerializer(MatrixSerializer):
+    def peek(self, source: Union[np.ndarray, str]) -> Tuple[Tuple[int], np.dtype]:
+        if isinstance(source, np.ndarray):
+            return source.shape, source.dtype
+
+        raise TypeError("Source must be a numpy.ndarray.")
+
+    def load(self, source: Union[np.ndarray, str]) -> np.ndarray:
+        if isinstance(source, np.ndarray):
+            return source
+
+        raise TypeError("Source must be a numpy.ndarray.")
+
+    def store(self, X: np.ndarray, basename: str) -> Union[np.ndarray, str]:
+        return X
+
+
+class NumpySerializer(MatrixSerializer):
     """
     MatrixLoader specialization to handle numpy .npy and .npz files
     """
@@ -169,7 +201,7 @@ class NumpyLoader(MatrixLoader):
         """
         self.npz_fieldname = npz_fieldname
 
-    def peek(self, source):
+    def peek(self, source: Union[np.ndarray, str]) -> Tuple[Tuple[int], np.dtype]:
         if isinstance(source, np.ndarray):
             return source.shape, source.dtype
 
@@ -201,7 +233,7 @@ class NumpyLoader(MatrixLoader):
 
         raise TypeError("Source must be either a string (file path) or a numpy.ndarray.")
 
-    def load(self, source):
+    def load(self, source: Union[np.ndarray, str]) -> np.ndarray:
         if isinstance(source, np.ndarray):
             return source
 
@@ -219,6 +251,17 @@ class NumpyLoader(MatrixLoader):
 
         raise TypeError("Source must be either a string (file path) or a numpy.ndarray.")
 
+    def store(self, X: np.ndarray, basename: str) -> Union[np.ndarray, str]:
+        fname = None
+        if self.npz_fieldname:
+            fname = basename + ".npz"
+            np.savez_compressed(fname, {self.npz_fieldname: X})
+        else:
+            fname = basename + ".npy"
+            np.save(X, fname)
+
+        return fname
+
 
 #TODO: OpenFOAMLoader
 
@@ -228,7 +271,7 @@ def make_chunks(
     output_dir: str,
     n_chunks: Optional[int] = None,
     n_chunk_max_cols: Optional[int] = None,
-    loader: Optional[MatrixLoader] = None,
+    serializer: Optional[MatrixSerializer] = None,
 ) -> List[str]:
     """
     Helper function to aggregate sources (interpreted as columns) into a list of chunked files.
@@ -260,10 +303,10 @@ def make_chunks(
 
     os.makedirs(output_dir, exist_ok=True)
 
-    if loader is None:
-        loader = NumpyLoader("")
+    if serializer is None:
+        serializer = NumpySerializer("")
 
-    snapshot_shape, snapshot_dtype = loader.peek(sources[0])
+    snapshot_shape, snapshot_dtype = serializer.peek(sources[0])
 
     chunk_fnames = []
     i_source = 0
@@ -274,10 +317,10 @@ def make_chunks(
 
         chunk = np.empty((np.prod(snapshot_shape), chunk_size), dtype=snapshot_dtype)
         for j, source in enumerate(sources[i_source:i_source + chunk_size]):
-            chunk[:, j] = loader.load(source).flatten()
+            chunk[:, j] = serializer.load(source).flatten()
 
-        chunk_fname = os.path.join(output_dir, f"chunk_{i_chunk:04d}.npy")
-        np.save(chunk_fname, chunk)
+        chunk_fname = os.path.join(output_dir, f"chunk_{i_chunk:04d}")
+        chunk_fname = serializer.store(chunk, chunk_fname)
         chunk_fnames.append(chunk_fname)
 
         del chunk
