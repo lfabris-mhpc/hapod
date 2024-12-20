@@ -1,124 +1,10 @@
 import os
-import platform
-import subprocess
-import zipfile
 import math
-from abc import ABC, abstractmethod
 from typing import List, Optional, Tuple, Union
 
 import numpy as np
 
-
-def get_memory_size() -> int:
-    """
-    Try to retrieve the amount of RAM available to the current machine
-
-    Returns:
-        int: RAM in bytes
-    """
-    system = platform.system()
-
-    if system == "Linux":
-        with open("/proc/meminfo", "r") as f:
-            for line in f:
-                if line.startswith("MemTotal"):
-                    mem_total_kb = int(line.split()[1])
-                    return mem_total_kb * 2**10
-
-    elif system == "Darwin":
-        # macOS
-        result = subprocess.run(["sysctl", "hw.memsize"], stdout=subprocess.PIPE)
-        mem_size_bytes = int(result.stdout.decode().split(":")[1].strip())
-        return mem_size_bytes
-
-    elif system == "Windows":
-        result = subprocess.run(["wmic", "computersystem", "get", "TotalPhysicalMemory"],
-                                stdout=subprocess.PIPE)
-        mem_size_bytes = int(result.stdout.decode().split("\n")[1].strip())
-        return mem_size_bytes
-
-    else:
-        raise OSError("Unsupported OS")
-
-
-def get_matrix_memory_footprint(shape: Tuple[int], dtype: np.dtype = np.float64) -> int:
-    """
-    Computes the memory taken by a matrix with given shape and dtype, in bytes
-
-    Args:
-        shape (Tuple[int]): shape of the matrix
-        dtype (np.dtype, optional): dtype of the matrix. Defaults to np.float64.
-
-    Returns:
-        int: bytes used by the given matrix
-    """
-    return np.prod(shape) * np.dtype(dtype).itemsize
-
-
-def get_svd_memory_footprint(shape: Tuple[int], dtype: np.dtype = np.float64) -> int:
-    """
-    Computes the memory required by the svd of a matrix with given shape and dtype, in bytes
-
-    Args:
-        shape (Tuple[int]): shape of the matrix
-        dtype (np.dtype, optional): dtype of the matrix. Defaults to np.float64.
-
-    Returns:
-        int: bytes used by the SVD of the given matrix
-    """
-    v_size = min(shape[-2], shape[-1])
-    return 2.18 * (math.prod(shape) +
-                   (math.prod(shape) // v_size) * v_size + v_size) * np.dtype(dtype).itemsize
-
-
-def get_max_svd_columns(n_rows: int,
-                        memory_limit: Optional[int] = None,
-                        dtype: np.dtype = np.float64) -> int:
-    if memory_limit is None:
-        memory_limit = get_memory_size()
-    itemsize = np.dtype(dtype).itemsize
-
-    lb = 1
-    ub = int(memory_limit) // (itemsize * n_rows)
-    while (ub - lb) > 0:
-        n_cols = (ub + lb + 1) // 2
-        ram_req = get_svd_memory_footprint((n_rows, n_cols), dtype)
-
-        if ram_req > memory_limit:
-            ub = n_cols - 1
-        elif ram_req < memory_limit:
-            lb = n_cols
-        else:
-            return n_cols
-
-    return lb
-
-
-def get_max_svd_square(memory_limit: Optional[int] = None, dtype: np.dtype = np.float64) -> int:
-    if memory_limit is None:
-        memory_limit = get_memory_size()
-    itemsize = np.dtype(dtype).itemsize
-
-    lb = 1
-    ub = int(memory_limit) // itemsize
-    while (ub - lb) > 0:
-        n_cols = (ub + lb + 1) // 2
-        ram_req = get_svd_memory_footprint((n_cols, n_cols), dtype)
-
-        # print(f"bounds {lb, ub}")
-        # print(n_cols)
-        if ram_req > memory_limit:
-            ub = n_cols - 1
-        elif ram_req < memory_limit:
-            lb = n_cols
-        else:
-            return n_cols
-
-    return lb
-
-
-def get_n_chunks_fulltree(n_cols: int, n_chunk_max_cols: int) -> int:
-    return 2**int(np.ceil(np.log2(n_cols / n_chunk_max_cols)))
+from .serializer import MatrixSerializer, NumpySerializer
 
 
 def get_random_matrix(n_rows: int,
@@ -148,146 +34,27 @@ def get_random_matrix(n_rows: int,
                   rand_gen.random((min(n_rank, n_rows, n_cols), n_cols), dtype=dtype), out)
 
 
-class MatrixSerializer(ABC):
-    """
-    Abstract base class for loading matrices during hapod
-    """
-    @abstractmethod
-    def peek(self, source: Union[np.ndarray, str]) -> Tuple[Tuple[int], np.dtype]:
-        """
-        Retrieve the shape and dtype of the source array, 
-        possibly without loading the entire file in memory
+def get_matrix_from_svalues(
+    n_rows: int,
+    s: np.ndarray,
+    dtype: np.dtype = np.float64,
+    rng: Optional[np.random.Generator] = None,
+    return_Us: bool = False,
+) -> np.ndarray:
+    if rng is None:
+        rng = np.random.default_rng()
 
-        Args:
-            source (Union[np.ndarray, str]): either a np.ndarray, or a string representation of the source
+    n_cols = len(s)
+    n_tmp = min(n_rows, n_cols)
+    U = np.zeros((n_rows, n_cols), dtype=dtype)
+    U[:n_tmp], _ = np.linalg.qr(rng.random((n_tmp, n_cols), dtype=dtype))
+    V, _ = np.linalg.qr(rng.random((n_cols, n_cols), dtype=dtype))
+    X = U @ np.diag(s) @ V.T
 
-        Returns:
-            Tuple[Tuple[int], np.dtype]: shape and dtype of the source
-        """
-        pass
+    if return_Us:
+        return X, U, s
 
-    @abstractmethod
-    def load(self, source: Union[np.ndarray, str]) -> np.ndarray:
-        """
-        Loads a np.ndarray from the given source
-
-        Args:
-            source (Union[np.ndarray, str]): either a np.ndarray, or a string representation of the source
-
-        Returns:
-            np.ndarray: the loaded np.ndarray
-        """
-        pass
-
-    @abstractmethod
-    def store(self, X: np.ndarray, basename: str) -> Union[np.ndarray, str]:
-        """
-        Store the given array using the given basename if needed.
-        Return the source identifier that will be used in the future to load back the array.
-
-        Args:
-            X (np.ndarray): the array to store
-            basename (str): the basename to interpret and possibly modify
-
-        Returns:
-            Union[np.ndarray, str]: either the array, if kept in memory, or a string to be fed to the load method
-        """
-        pass
-
-
-class InMemorySerializer(MatrixSerializer):
-    def peek(self, source: Union[np.ndarray, str]) -> Tuple[Tuple[int], np.dtype]:
-        if isinstance(source, np.ndarray):
-            return source.shape, source.dtype
-
-        raise TypeError("Source must be a numpy.ndarray.")
-
-    def load(self, source: Union[np.ndarray, str]) -> np.ndarray:
-        if isinstance(source, np.ndarray):
-            return source
-
-        raise TypeError("Source must be a numpy.ndarray.")
-
-    def store(self, X: np.ndarray, basename: str) -> Union[np.ndarray, str]:
-        return X
-
-
-class NumpySerializer(MatrixSerializer):
-    """
-    MatrixLoader specialization to handle numpy .npy and .npz files
-    """
-    def __init__(self, npz_fieldname: Optional[str] = None):
-        """
-        Initialization
-
-        Args:
-            npz_fieldname (Optional[str], optional): the name of the array to be loaded when handling .npz files. Defaults to None.
-        """
-        self.npz_fieldname = npz_fieldname
-
-    def peek(self, source: Union[np.ndarray, str]) -> Tuple[Tuple[int], np.dtype]:
-        if isinstance(source, np.ndarray):
-            return source.shape, source.dtype
-
-        if isinstance(source, str):
-            if not os.path.isfile(source):
-                raise FileNotFoundError(f"File not found: {source}")
-
-            if source.endswith(".npz"):
-                with zipfile.ZipFile(source, "r") as archive:
-                    if self.npz_fieldname is None or self.npz_fieldname not in archive.namelist():
-                        raise ValueError(f"Field {self.npz_fieldname} not found in the .npz file.")
-
-                    with archive.open(self.npz_fieldname) as fin:
-                        magic = np.lib.format.read_magic(fin)
-                        if magic[0] != 1:
-                            raise ValueError(
-                                f"Unsupported .npy format version in {self.npz_fieldname}")
-
-                        header = np.lib.format.read_array_header_1_0(fin)
-                        return header[0], header[2]
-
-            with open(source, "rb") as fin:
-                magic = np.lib.format.read_magic(fin)
-                if magic[0] != 1:
-                    raise ValueError("Unsupported .npy format version")
-
-                header = np.lib.format.read_array_header_1_0(fin)
-                return header[0], header[2]
-
-        raise TypeError("Source must be either a string (file path) or a numpy.ndarray.")
-
-    def load(self, source: Union[np.ndarray, str]) -> np.ndarray:
-        if isinstance(source, np.ndarray):
-            return source
-
-        if isinstance(source, str):
-            if not os.path.isfile(source):
-                raise FileNotFoundError(f"File not found: {source}")
-
-            if source.endswith(".npz"):
-                loaded = np.load(source, mmap_mode="r")
-                if self.npz_fieldname is None or self.npz_fieldname not in loaded:
-                    raise ValueError(f"Field {self.npz_fieldname} not found in the .npz file.")
-                return loaded[self.npz_fieldname]
-
-            return np.load(source)
-
-        raise TypeError("Source must be either a string (file path) or a numpy.ndarray.")
-
-    def store(self, X: np.ndarray, basename: str) -> Union[np.ndarray, str]:
-        fname = None
-        if self.npz_fieldname:
-            fname = basename + ".npz"
-            np.savez_compressed(fname, {self.npz_fieldname: X})
-        else:
-            fname = basename + ".npy"
-            np.save(fname, X)
-
-        return fname
-
-
-#TODO: OpenFOAMLoader
+    return X
 
 
 def make_chunks(
@@ -428,19 +195,55 @@ def get_pod(X: np.ndarray, rank_max: Optional[int] = None) -> Tuple[np.ndarray, 
     return U[:, :rank_max], s[:rank_max]
 
 
-def randomized_POD(
+def singular_vectors_orthogonality(U1: np.ndarray, U2: np.ndarray) -> np.ndarray:
+    if U1.shape != U2.shape:
+        raise ValueError(f"array shapes must be equal {U1.shape} vs {U2.shape}")
+    return np.max(np.abs(U1.T @ U2), axis=0)
+
+
+def peek_chunks_aggregation(
+    sources: List[Union[str, np.ndarray]],
+    serializer: Optional[MatrixSerializer] = None,
+) -> Tuple[int, int]:
+    if serializer is None:
+        serializer = NumpySerializer("")
+
+    n_rows = []
+    n_cols = []
+    dtypes = []
+    for source in sources:
+        shape, dtype = serializer.peek(source)
+        if len(shape) != 2:
+            raise ValueError(f"chunks must be 2d found {shape}")
+
+        if n_rows and shape[0] != n_rows[-1]:
+            raise ValueError(
+                f"chunks must have the same number of rows found {shape[0]} vs {n_rows[-1]}")
+
+        if dtypes and dtype != dtypes[-1]:
+            raise ValueError(f"chunks must be of the same dtype found {dtype} vs {dtypes[-1]}")
+
+        n_rows.append(shape[0])
+        n_cols.append(shape[1])
+        dtypes.append(dtype)
+
+    return (n_rows[0], sum(n_cols)), dtypes[0]
+
+
+def randomized_pod(
     sources: List[Union[str, np.ndarray]],
     rank_max: int,
     serializer: Optional[MatrixSerializer] = None,
-    randomizer_rng: Optional[np.random.Generator] = None,
+    rng: Optional[np.random.Generator] = None,
 ):
     if serializer is None:
         serializer = NumpySerializer("")
 
-    shape, dtype = serializer.peek(sources[0])
-    n_rows = math.prod(shape)
-    n_cols = len(sources)
-    random_samples = randomizer_rng.choice(n_cols, rank_max, replace=False)
+    if rng is None:
+        rng = np.random.default_rng()
+
+    (n_rows, n_cols), dtype = peek_chunks_aggregation(sources, serializer)
+    random_samples = rng.choice(n_cols, rank_max, replace=False)
 
     Z = np.empty((n_rows, rank_max), dtype=dtype)
     for i, j in enumerate(random_samples):

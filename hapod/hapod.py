@@ -6,7 +6,8 @@ from typing import Optional, Callable, Tuple, Union, List
 
 import numpy as np
 
-from .utils import MatrixSerializer, NumpySerializer, get_pod
+from hapod.serializer import MatrixSerializer, NumpySerializer
+from hapod.utils import get_pod
 
 
 def hapod(Xs: List[Union[np.ndarray, str]],
