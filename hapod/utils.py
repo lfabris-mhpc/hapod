@@ -1,9 +1,10 @@
 import os
 import platform
+import random
 import subprocess
+import zipfile
 from abc import ABC, abstractmethod
 from typing import List, Optional, Tuple, Union
-import zipfile
 
 import numpy as np
 
@@ -97,12 +98,12 @@ def get_n_chunks_balanced(n_cols: int, n_chunk_max_cols: int) -> int:
     return 2**int(np.ceil(np.log2(n_cols / n_chunk_max_cols)))
 
 
-def random_matrix(n_rows: int,
-                  n_cols: int,
-                  n_rank: int,
-                  out: Optional[np.ndarray] = None,
-                  rand_gen: Optional[np.random.Generator] = None,
-                  dtype: np.dtype = np.float64) -> np.ndarray:
+def get_random_matrix(n_rows: int,
+                      n_cols: int,
+                      n_rank: int,
+                      out: Optional[np.ndarray] = None,
+                      rand_gen: Optional[np.random.Generator] = None,
+                      dtype: np.dtype = np.float64) -> np.ndarray:
     """
     Generates a random matrix with the required shape and rank
 
@@ -258,7 +259,7 @@ class NumpySerializer(MatrixSerializer):
             np.savez_compressed(fname, {self.npz_fieldname: X})
         else:
             fname = basename + ".npy"
-            np.save(X, fname)
+            np.save(fname, X)
 
         return fname
 
@@ -272,6 +273,7 @@ def make_chunks(
     n_chunks: Optional[int] = None,
     n_chunk_max_cols: Optional[int] = None,
     serializer: Optional[MatrixSerializer] = None,
+    randomizer_rng: Optional[np.random.Generator] = None,
 ) -> List[str]:
     """
     Helper function to aggregate sources (interpreted as columns) into a list of chunked files.
@@ -290,6 +292,9 @@ def make_chunks(
         List[str]: list of filenames created
     """
     n_sources = len(sources)
+    if randomizer_rng is not None:
+        sources = list(sources)
+        randomizer_rng.shuffle(sources)
 
     if n_chunks is None and n_chunk_max_cols is None:
         raise ValueError("exactly one of n_chunks and n_chunk_max_cols must be specified")

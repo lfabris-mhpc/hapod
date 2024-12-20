@@ -62,16 +62,16 @@ def hapod(Xs: List[Union[np.ndarray, str]],
     #         print(f"estimated height {h} of the merge tree")
     #         print(f"actual res_energy_ratio_max {res_energy_ratio_max}")
 
-    def source_repr(x: Union[np.ndarray, str]) -> str:
-        if isinstance(x, np.ndarray):
-            return str(x.shape)
+    def source_repr(x: Union[np.ndarray, str], serializer: MatrixSerializer) -> str:
+        if isinstance(x, str):
+            return f"{x} {serializer.peek(x)}"
 
-        return x
+        return str(serializer.peek(x))
 
     if verbose:
         print("Xs")
         for x in Xs_local:
-            print(f"    {source_repr(x)}")
+            print(f"    {source_repr(x, serializer)}")
 
     work_dir = temp_work_dir
     if work_dir is None:
@@ -103,8 +103,8 @@ def hapod(Xs: List[Union[np.ndarray, str]],
 
             if verbose:
                 print(f"merging ")
-                print(f"    {source_repr(X1_source)} {X1_shape}")
-                print(f"    {source_repr(X2_source)} {X2_shape}")
+                print(f"    {source_repr(X1_source, serializer)}")
+                print(f"    {source_repr(X2_source, serializer)}")
 
             if len(X1_shape) != len(X2_shape):
                 raise ValueError("incompatible shapes")
@@ -128,6 +128,8 @@ def hapod(Xs: List[Union[np.ndarray, str]],
                 #last merge is not truncated
                 chunk_rank_max = None
 
+            if verbose:
+                print("POD")
             elapsed_pod = -time.perf_counter()
             U, s = pod_impl(
                 X,
@@ -151,15 +153,15 @@ def hapod(Xs: List[Union[np.ndarray, str]],
             del U
             s = None
             del s
-            #TODO: switch to use serializer
-            merged_fname = os.path.join(work_dir, f"merged_{len(merged_sources)}.npy")
-            np.save(merged_fname, X_tilde)
-            merged_sources.add(merged_fname)
+            merged_fname = os.path.join(work_dir, f"merged_{len(merged_sources)}")
+            merged_fname = serializer.store(X_tilde, merged_fname)
+            if isinstance(merged_fname, str):
+                merged_sources.add(merged_fname)
             X_tilde = None
             del X_tilde
 
             if verbose:
-                print(f"    stored new chunk {merged_fname}")
+                print(f"    stored new chunk {source_repr(merged_fname, serializer)}")
 
             try:
                 if X1_source in merged_sources:
@@ -177,7 +179,7 @@ def hapod(Xs: List[Union[np.ndarray, str]],
             if verbose:
                 print("Xs")
                 for x in Xs_local:
-                    print(f"    {source_repr(x)}")
+                    print(f"    {source_repr(x, serializer)}")
 
         if len(Xs_local) == 1:
             #the list had a single element
@@ -186,7 +188,7 @@ def hapod(Xs: List[Union[np.ndarray, str]],
 
             if verbose:
                 print(f"last chunk")
-                print(f"    {source_repr(X1_source)} {X1.shape}")
+                print(f"    {source_repr(X1_source, serializer)}")
 
             elapsed_pod = -time.perf_counter()
             #last merge is not truncated
