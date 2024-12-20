@@ -245,12 +245,18 @@ def randomized_pod(
     (n_rows, n_cols), dtype = peek_chunks_aggregation(sources, serializer)
     random_samples = rng.choice(n_cols, rank_max, replace=False)
 
-    Z = np.empty((n_rows, rank_max), dtype=dtype)
-    for i, j in enumerate(random_samples):
-        Z[:, i] = serializer.load(sources[j]).flatten()
+    random_sources = [sources[i] for i in random_samples]
+    (n_rows, sampled_cols), dtype = peek_chunks_aggregation(random_sources, serializer)
+    Z = np.empty((n_rows, sampled_cols), dtype=dtype)
+    i_start = 0
+    for source in random_sources:
+        (_, sample_cols), _ = serializer.peek(source)
+        i_end = i_start + sample_cols
+        Z[:, i_start:i_end] = serializer.load(source)
+        i_start = i_end
 
     Q, _ = np.linalg.qr(Z)
-    Y = np.empty((rank_max, n_cols), dtype=dtype)
+    Y = np.empty((sampled_cols, n_cols), dtype=dtype)
     for i, source in enumerate(sources):
         Y[:, i] = Q.T @ serializer.load(source).flatten()
 
