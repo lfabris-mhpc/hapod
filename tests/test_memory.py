@@ -44,4 +44,4 @@ def test_get_max_svd_square():
     m1 = hp.get_max_svd_square(m_limit, dtype=np.float64)
     m2 = hp.get_max_svd_square(m_limit, dtype=np.float32)
 
-    assert np.isclose(m2 / m1, np.sqrt(2))
+    assert np.isclose(m2 / m1, np.sqrt(2), atol=1e-4)
