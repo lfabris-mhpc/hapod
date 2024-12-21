@@ -74,7 +74,7 @@ class NumpySerializer(MatrixSerializer):
     """
     MatrixLoader specialization to handle numpy .npy and .npz files
     """
-    def __init__(self, npz_fieldname: Optional[str] = None):
+    def __init__(self, npz_fieldname: Optional[str] = ""):
         """
         Initialization
 
@@ -93,14 +93,14 @@ class NumpySerializer(MatrixSerializer):
 
             if source.endswith(".npz"):
                 with zipfile.ZipFile(source, "r") as archive:
-                    if self.npz_fieldname is None or self.npz_fieldname not in archive.namelist():
+                    fname = f"{self.npz_fieldname}.npy"
+                    if not self.npz_fieldname or fname not in archive.namelist():
                         raise ValueError(f"Field {self.npz_fieldname} not found in the .npz file.")
 
-                    with archive.open(self.npz_fieldname) as fin:
+                    with archive.open(fname) as fin:
                         magic = np.lib.format.read_magic(fin)
                         if magic[0] != 1:
-                            raise ValueError(
-                                f"Unsupported .npy format version in {self.npz_fieldname}")
+                            raise ValueError(f"Unsupported .npy format version in {fname}")
 
                         header = np.lib.format.read_array_header_1_0(fin)
                         return header[0], header[2]
@@ -124,10 +124,13 @@ class NumpySerializer(MatrixSerializer):
                 raise FileNotFoundError(f"File not found: {source}")
 
             if source.endswith(".npz"):
-                loaded = np.load(source, mmap_mode="r")
-                if self.npz_fieldname is None or self.npz_fieldname not in loaded:
+                content = np.load(source)
+
+                fname = f"{self.npz_fieldname}.npy"
+                if not self.npz_fieldname or fname not in content:
                     raise ValueError(f"Field {self.npz_fieldname} not found in the .npz file.")
-                return loaded[self.npz_fieldname]
+
+                return content[fname]
 
             return np.load(source)
 
@@ -137,7 +140,8 @@ class NumpySerializer(MatrixSerializer):
         fname = None
         if self.npz_fieldname:
             fname = basename + ".npz"
-            np.savez_compressed(fname, {self.npz_fieldname: X})
+            args = {self.npz_fieldname: X}
+            np.savez_compressed(fname, **args)
         else:
             fname = basename + ".npy"
             np.save(fname, X)
