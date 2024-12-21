@@ -12,7 +12,7 @@ def test_randomized_pod_eye_s_1():
 
     _, s = hp.randomized_pod(
         [X],
-        rank_max=len(X) // 2,
+        n_sources_samples=len(X) // 2,
         serializer=hp.InMemorySerializer(),
     )
 
@@ -24,7 +24,7 @@ def test_randomized_pod_eye_s_2():
 
     _, s = hp.randomized_pod(
         np.array_split(X, 2, axis=1),
-        rank_max=len(X) // 2,
+        n_sources_samples=len(X) // 2,
         serializer=hp.InMemorySerializer(),
     )
 
@@ -36,7 +36,7 @@ def test_randomized_pod_eye_s_3():
 
     _, s = hp.randomized_pod(
         np.array_split(X, 4, axis=1),
-        rank_max=len(X) // 2,
+        n_sources_samples=len(X) // 2,
         serializer=hp.InMemorySerializer(),
     )
 
@@ -50,7 +50,7 @@ def test_randomized_pod_full_rank_1():
 
     U, s = hp.randomized_pod(
         [X],
-        rank_max=len(s_true),
+        n_sources_samples=len(s_true),
         serializer=hp.InMemorySerializer(),
     )
     assert np.allclose(s[mask], s_true[mask])
@@ -69,7 +69,7 @@ def test_randomized_pod_full_rank_2():
 
     U, s = hp.randomized_pod(
         np.array_split(X, 2, axis=1),
-        rank_max=len(s_true),
+        n_sources_samples=len(s_true),
         serializer=hp.InMemorySerializer(),
     )
     assert np.allclose(s[mask], s_true[mask])
@@ -88,7 +88,7 @@ def test_randomized_pod_full_rank_3():
 
     U, s = hp.randomized_pod(
         np.array_split(X, 4, axis=1),
-        rank_max=len(s_true),
+        n_sources_samples=len(s_true),
         serializer=hp.InMemorySerializer(),
     )
     assert np.allclose(s[mask], s_true[mask])
@@ -107,7 +107,7 @@ def test_randomized_pod_half_rank_1():
 
     U, s = hp.randomized_pod(
         [X],
-        rank_max=len(s_true),
+        n_sources_samples=len(s_true),
         serializer=hp.InMemorySerializer(),
     )
     assert np.allclose(s[mask], s_true[mask])
@@ -123,7 +123,7 @@ def test_randomized_pod_half_rank_2():
 
     U, s = hp.randomized_pod(
         np.array_split(X, 2, axis=1),
-        rank_max=len(s_true),
+        n_sources_samples=len(s_true),
         serializer=hp.InMemorySerializer(),
     )
     assert np.allclose(s[mask], s_true[mask])
@@ -139,7 +139,7 @@ def test_randomized_pod_half_rank_3():
 
     U, s = hp.randomized_pod(
         np.array_split(X, 4, axis=1),
-        rank_max=len(s_true),
+        n_sources_samples=len(s_true),
         serializer=hp.InMemorySerializer(),
     )
     assert np.allclose(s[mask], s_true[mask])
@@ -162,7 +162,7 @@ def test_randomized_pod_file_1():
 
         U, s = hp.randomized_pod(
             chunks_fnames,
-            rank_max=len(s_true),
+            n_sources_samples=len(s_true),
         )
         assert np.allclose(s[mask], s_true[mask])
 
@@ -184,7 +184,7 @@ def test_randomized_pod_file_2():
 
         U, s = hp.randomized_pod(
             chunks_fnames,
-            rank_max=len(s_true),
+            n_sources_samples=len(s_true),
         )
         assert np.allclose(s, s_true)
 
@@ -206,7 +206,7 @@ def test_randomized_pod_file_3():
 
         U, s = hp.randomized_pod(
             chunks_fnames,
-            rank_max=len(s_true),
+            n_sources_samples=len(s_true),
         )
         assert np.allclose(s, s_true)
 

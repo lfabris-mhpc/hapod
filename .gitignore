@@ -4,4 +4,5 @@ dist/
 build/
 code_review.log
 hapod.egg-info
+.coverage
 

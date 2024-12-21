@@ -7,33 +7,6 @@ import numpy as np
 from .serializer import MatrixSerializer, NumpySerializer
 
 
-def get_random_matrix(n_rows: int,
-                      n_cols: int,
-                      n_rank: int,
-                      out: Optional[np.ndarray] = None,
-                      rand_gen: Optional[np.random.Generator] = None,
-                      dtype: np.dtype = np.float64) -> np.ndarray:
-    """
-    Generates a random matrix with the required shape and rank
-
-    Args:
-        n_rows (int): number of rows in the output
-        n_cols (int): number of columns in the output
-        n_rank (int): rank of the resulting matrix
-        out (Optional[np.ndarray], optional): Output argument. This must have the exact kind that would be returned if it was not used. In particular, it must have the right type, must be C-contiguous, and its dtype must be dtype. Defaults to None.
-        rand_gen (Optional[np.random.Generator], optional): random generator to use. If None, uses np.random.default_rng(). Defaults to None.
-        dtype (np.dtype, optional): dtype of the matrix. Defaults to np.float64.
-
-    Returns:
-        np.ndarray: output matrix
-    """
-    if rand_gen is None:
-        rand_gen = np.random.default_rng()
-
-    return np.dot(rand_gen.random((n_rows, min(n_rank, n_rows, n_cols)), dtype=dtype),
-                  rand_gen.random((min(n_rank, n_rows, n_cols), n_cols), dtype=dtype), out)
-
-
 def get_matrix_from_svalues(
     n_rows: int,
     s: np.ndarray,
@@ -232,7 +205,7 @@ def peek_chunks_aggregation(
 
 def randomized_pod(
     sources: List[Union[str, np.ndarray]],
-    rank_max: int,
+    n_sources_samples: int,
     serializer: Optional[MatrixSerializer] = None,
     rng: Optional[np.random.Generator] = None,
 ):
@@ -243,8 +216,8 @@ def randomized_pod(
         rng = np.random.default_rng()
 
     (n_rows, n_cols), dtype = peek_chunks_aggregation(sources, serializer)
-    n_sources_rank = min(rank_max, n_cols, len(sources))
-    random_samples = rng.choice(len(sources), n_sources_rank, replace=False)
+    n_sources_samples = min(n_sources_samples, len(sources))
+    random_samples = rng.choice(len(sources), n_sources_samples, replace=False)
 
     random_sources = [sources[i] for i in random_samples]
     (n_rows, sampled_cols), dtype = peek_chunks_aggregation(random_sources, serializer)
