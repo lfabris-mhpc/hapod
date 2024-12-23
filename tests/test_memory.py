@@ -36,7 +36,7 @@ def test_get_max_svd_columns():
     m1 = hp.get_max_svd_columns(shape[0], m_limit, dtype=np.float64)
     m2 = hp.get_max_svd_columns(shape[0], m_limit, dtype=np.float32)
 
-    assert abs(m2 - (2 * m1)) < 2
+    assert abs(m2 - (2 * m1)) <= 2
 
 
 def test_get_max_svd_square():

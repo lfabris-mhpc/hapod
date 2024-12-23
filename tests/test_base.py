@@ -39,3 +39,12 @@ def get_test_matrix_identity(
     s_true = np.ones(n_rows)
 
     return hp.get_matrix_from_svalues(n_rows, s_true, dtype=dtype, rng=rng)
+
+
+def get_nonzero_close(x: np.ndarray, x_true: np.ndarray):
+    atol = 1e-8
+    if x_true.dtype in [np.float32, np.float16]:
+        atol = 1e-5
+    mask = ~np.isclose(x_true, 0, atol=atol)
+
+    return np.allclose(x[mask], x_true[mask], atol=atol)

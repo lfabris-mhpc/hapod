@@ -216,21 +216,33 @@ def randomized_pod(
         rng = np.random.default_rng()
 
     (n_rows, n_cols), dtype = peek_chunks_aggregation(sources, serializer)
-    n_sources_samples = min(n_sources_samples, len(sources))
-    random_samples = rng.choice(len(sources), n_sources_samples, replace=False)
+    n_sources_samples = min(n_sources_samples, n_cols)
+    random_samples = rng.choice(n_cols, n_sources_samples, replace=False)
+    random_samples.sort()
 
-    random_sources = [sources[i] for i in random_samples]
-    (n_rows, sampled_cols), dtype = peek_chunks_aggregation(random_sources, serializer)
-    Z = np.empty((n_rows, sampled_cols), dtype=dtype)
-    i_start = 0
-    for source in random_sources:
-        (_, sample_cols), _ = serializer.peek(source)
-        i_end = i_start + sample_cols
-        Z[:, i_start:i_end] = serializer.load(source)
-        i_start = i_end
+    Z = np.empty((n_rows, n_sources_samples), dtype=dtype)
+
+    chunks_sizes = [serializer.peek(source)[0][1] for source in sources]
+    chunks_ubs = np.cumsum(chunks_sizes)
+
+    chunk = None
+    j_chunk_prev = None
+    for i, i_sample in enumerate(random_samples):
+        j_chunk = np.searchsorted(chunks_ubs, i_sample, side="right")
+        if j_chunk != j_chunk_prev:
+            chunk = serializer.load(sources[j_chunk])
+            j_chunk_prev = j_chunk
+
+        i_chunk_offset = i_sample
+        if j_chunk:
+            i_chunk_offset -= chunks_ubs[j_chunk - 1]
+
+        Z[:, i] = np.atleast_2d(chunk)[:, i_chunk_offset]
+
+    rng.shuffle(Z, axis=1)
 
     Q, _ = np.linalg.qr(Z)
-    Y = np.empty((sampled_cols, n_cols), dtype=dtype)
+    Y = np.empty((n_sources_samples, n_cols), dtype=dtype)
     i_start = 0
     for source in sources:
         (_, sample_cols), _ = serializer.peek(source)

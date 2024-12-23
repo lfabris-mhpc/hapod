@@ -115,4 +115,5 @@ def get_max_svd_square(memory_limit: Optional[int] = None, dtype: np.dtype = np.
 
 
 def get_n_chunks_fulltree(n_cols: int, n_chunk_max_cols: int) -> int:
-    return 2**int(np.ceil(np.log2(n_cols / n_chunk_max_cols)))
+    depth = int(np.ceil(np.log2(n_cols / n_chunk_max_cols)))
+    return 2**max(0, depth)

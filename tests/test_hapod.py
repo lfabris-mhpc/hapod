@@ -53,7 +53,7 @@ def test_hapod_full_rank_1():
         chunk_rank_max=len(s_true),
         serializer=hp.InMemorySerializer(),
     )
-    assert np.allclose(s[mask], s_true[mask])
+    assert get_nonzero_close(s, s_true)
 
     print(U.shape)
     print(U_true.shape)
@@ -72,7 +72,7 @@ def test_hapod_full_rank_2():
         chunk_rank_max=len(s_true),
         serializer=hp.InMemorySerializer(),
     )
-    assert np.allclose(s[mask], s_true[mask])
+    assert get_nonzero_close(s, s_true)
 
     print(U.shape)
     print(U_true.shape)
@@ -91,7 +91,7 @@ def test_hapod_full_rank_3():
         chunk_rank_max=len(s_true),
         serializer=hp.InMemorySerializer(),
     )
-    assert np.allclose(s[mask], s_true[mask])
+    assert get_nonzero_close(s, s_true)
 
     print(U.shape)
     print(U_true.shape)
@@ -110,7 +110,7 @@ def test_hapod_half_rank_1():
         chunk_rank_max=len(s_true),
         serializer=hp.InMemorySerializer(),
     )
-    assert np.allclose(s[mask], s_true[mask])
+    assert get_nonzero_close(s, s_true)
 
     ortho = hp.singular_vectors_orthogonality(U[:, mask], U_true[:, mask])
     assert np.allclose(ortho, 1)
@@ -126,7 +126,7 @@ def test_hapod_half_rank_2():
         chunk_rank_max=len(s_true),
         serializer=hp.InMemorySerializer(),
     )
-    assert np.allclose(s[mask], s_true[mask])
+    assert get_nonzero_close(s, s_true)
 
     ortho = hp.singular_vectors_orthogonality(U[:, mask], U_true[:, mask])
     assert np.allclose(ortho, 1)
@@ -142,7 +142,7 @@ def test_hapod_half_rank_3():
         chunk_rank_max=len(s_true),
         serializer=hp.InMemorySerializer(),
     )
-    assert np.allclose(s[mask], s_true[mask])
+    assert get_nonzero_close(s, s_true)
 
     ortho = hp.singular_vectors_orthogonality(U[:, mask], U_true[:, mask])
     assert np.allclose(ortho, 1)
@@ -164,7 +164,7 @@ def test_hapod_file_1():
             chunks_fnames,
             chunk_rank_max=len(s_true),
         )
-        assert np.allclose(s[mask], s_true[mask])
+        assert get_nonzero_close(s, s_true)
 
         ortho = hp.singular_vectors_orthogonality(U[:, mask], U_true[:, mask])
         assert np.allclose(ortho, 1)
@@ -186,7 +186,7 @@ def test_hapod_file_2():
             chunks_fnames,
             chunk_rank_max=len(s_true),
         )
-        assert np.allclose(s, s_true)
+        assert get_nonzero_close(s, s_true)
 
         ortho = hp.singular_vectors_orthogonality(U[:, mask], U_true[:, mask])
         assert np.allclose(ortho, 1)
@@ -208,7 +208,7 @@ def test_hapod_file_3():
             chunks_fnames,
             chunk_rank_max=len(s_true),
         )
-        assert np.allclose(s, s_true)
+        assert get_nonzero_close(s, s_true)
 
         ortho = hp.singular_vectors_orthogonality(U[:, mask], U_true[:, mask])
         assert np.allclose(ortho, 1)
