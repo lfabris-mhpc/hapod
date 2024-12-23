@@ -68,6 +68,13 @@ def get_svd_memory_footprint(shape: Tuple[int], dtype: np.dtype = np.float64) ->
                    (math.prod(shape) // v_size) * v_size + v_size) * np.dtype(dtype).itemsize
 
 
+def get_randomized_svd_memory_footprint(shape: Tuple[int],
+                                        n_samples: int,
+                                        dtype: np.dtype = np.float64) -> int:
+    return 6.5 * get_matrix_memory_footprint(
+        (shape[0], n_samples), dtype) + get_svd_memory_footprint((n_samples, shape[-1]), dtype)
+
+
 def get_max_svd_columns(n_rows: int,
                         memory_limit: Optional[int] = None,
                         dtype: np.dtype = np.float64) -> int:
@@ -110,6 +117,33 @@ def get_max_svd_square(memory_limit: Optional[int] = None, dtype: np.dtype = np.
             lb = n_cols
         else:
             return n_cols
+
+    return lb
+
+
+def get_max_randomized_svd_samples(shape: Tuple[int],
+                                   memory_limit: Optional[int] = None,
+                                   dtype: np.dtype = np.float64) -> int:
+    if memory_limit is None:
+        memory_limit = get_memory_size()
+    itemsize = np.dtype(dtype).itemsize
+
+    n_rows, n_cols = shape
+
+    lb = 1
+    ub = int(memory_limit) // itemsize
+    while (ub - lb) > 0:
+        n_samples = (ub + lb + 1) // 2
+        ram_req = get_randomized_svd_memory_footprint((n_rows, n_cols), n_samples, dtype)
+
+        # print(f"bounds {lb, ub}")
+        # print(n_samples)
+        if ram_req > memory_limit:
+            ub = n_samples - 1
+        elif ram_req < memory_limit:
+            lb = n_samples
+        else:
+            return n_samples
 
     return lb
 
