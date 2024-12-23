@@ -71,6 +71,10 @@ def get_svd_memory_footprint(shape: Tuple[int], dtype: np.dtype = np.float64) ->
 def get_randomized_svd_memory_footprint(shape: Tuple[int],
                                         n_samples: int,
                                         dtype: np.dtype = np.float64) -> int:
+    # return get_matrix_memory_footprint((shape[0], n_samples), dtype) \
+    #     + get_matrix_memory_footprint((n_samples, n_samples), dtype) \
+    #     + get_svd_memory_footprint((n_samples, shape[-1]), dtype)
+
     return 6.5 * get_matrix_memory_footprint(
         (shape[0], n_samples), dtype) + get_svd_memory_footprint((n_samples, shape[-1]), dtype)
 

@@ -11,11 +11,11 @@ authors = [{ name = "Lorenzo Fabris", email = "lfabris@sissa.it" }]
 version = "0.0.1"
 readme = "README.md"
 license = { file = "LICENSE" }
-dependencies = ["numpy", "scikit-learn"]
+dependencies = ["numpy"]
 
 [project.optional-dependencies]
 docs = ["sphinx"]
-tests = ["pytest"]
+tests = ["pytest", "pytest-cov"]
 
 [tool.setuptools.packages.find]
 where = ["."]
