@@ -254,3 +254,76 @@ def randomized_pod(
     U = Q @ Uy
 
     return U, s
+
+
+def chunked_sV(
+    sources: List[Union[str, np.ndarray]],
+    serializer: Optional[MatrixSerializer] = None,
+    eigenvtol: float = 1e-16,
+):
+    if serializer is None:
+        serializer = NumpySerializer("")
+
+    (_, S_cols), S_dtype = peek_chunks_aggregation(sources)
+    chunks_cols = [serializer.peek(chunk_fname)[0][1] for chunk_fname in sources]
+
+    StS = np.zeros((S_cols, S_cols), S_dtype)
+
+    StS_j_start = 0
+    for j, chunk_right_fname in enumerate(sources):
+        chunk_right = serializer.load(chunk_right_fname)
+
+        StS_j_end = StS_j_start + chunks_cols[j]
+
+        StS_i_start = sum(chunks_cols[:j])
+        for i, chunk_left_fname in enumerate(sources[j:], j):
+            if i != j:
+                chunk_left = serializer.load(chunk_left_fname).T
+            else:
+                chunk_left = chunk_right.T
+
+            StS_i_end = min(StS_i_start + chunks_cols[i], S_cols)
+
+            StS[StS_i_start:StS_i_end, StS_j_start:StS_j_end] = chunk_left @ chunk_right
+
+            StS_i_start = StS_i_end
+        StS_j_start = StS_j_end
+
+    s, V = np.linalg.eigh(StS, "L")
+    masking = s <= eigenvtol
+    s[masking] = 0
+    sorter = np.argsort(s)[::-1]
+    s = np.sqrt(s[sorter])
+    V = V[:, sorter]
+
+    return s, V
+
+
+def chunked_U(
+    sources: List[Union[str, np.ndarray]],
+    s: np.ndarray,
+    V: np.ndarray,
+    serializer: Optional[MatrixSerializer] = None,
+):
+    if serializer is None:
+        serializer = NumpySerializer("")
+
+    (S_rows, _), S_dtype = peek_chunks_aggregation(sources)
+    chunks_cols = [serializer.peek(chunk_fname)[0][1] for chunk_fname in sources]
+
+    U = np.zeros((S_rows, V.shape[1]), S_dtype)
+    Vsminus = V.copy()
+    for i in range(len(s)):
+        if np.abs(s[i]) > 1e-8:
+            Vsminus[:, i] /= s[i]
+    V_i_start = 0
+    for j, chunk_fname in enumerate(sources):
+        chunk = serializer.load(chunk_fname)
+
+        V_i_end = V_i_start + chunks_cols[j]
+
+        U += chunk @ Vsminus[V_i_start:V_i_end]
+
+        V_i_start = V_i_end
+
+    return U
