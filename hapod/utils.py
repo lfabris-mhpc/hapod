@@ -1,5 +1,4 @@
 import os
-import math
 from typing import List, Optional, Tuple, Union
 
 import numpy as np
@@ -168,7 +167,7 @@ def get_pod(X: np.ndarray, rank_max: Optional[int] = None) -> Tuple[np.ndarray, 
     return U[:, :rank_max], s[:rank_max]
 
 
-def singular_vectors_orthogonality(U1: np.ndarray, U2: np.ndarray) -> np.ndarray:
+def get_singular_vectors_orthogonality(U1: np.ndarray, U2: np.ndarray) -> np.ndarray:
     if U1.shape != U2.shape:
         raise ValueError(f"array shapes must be equal {U1.shape} vs {U2.shape}")
     return np.max(np.abs(U1.T @ U2), axis=0)
@@ -256,11 +255,24 @@ def randomized_pod(
     return U, s
 
 
-def chunked_sV(
+def piecewise_sV(
     sources: List[Union[str, np.ndarray]],
     serializer: Optional[MatrixSerializer] = None,
     eigenvtol: float = 1e-16,
-):
+) -> Tuple[np.ndarray, np.ndarray]:
+    """
+    Compute the singular vectors and V for a matrix whose columns are stored in sources
+    The singular vectors are obtained from the eigenvalues of X.T@X
+    The eigenvalues lower than eigenvtol are zeroed
+
+    Args:
+        sources (List[Union[str, np.ndarray]]): sources containing the columns of X, expected as 2d chunks
+        serializer (Optional[MatrixSerializer], optional): serializer to interpret sources. Defaults to None.
+        eigenvtol (float, optional): zeroing threshold for eigenvalues. Defaults to 1e-16.
+
+    Returns:
+        Tuple[np.ndarray, np.ndarray]: the array of singular values and the V matrix
+    """
     if serializer is None:
         serializer = NumpySerializer("")
 
@@ -299,14 +311,30 @@ def chunked_sV(
     return s, V
 
 
-def chunked_U(
+def piecewise_U(
     sources: List[Union[str, np.ndarray]],
     s: np.ndarray,
     V: np.ndarray,
     serializer: Optional[MatrixSerializer] = None,
-):
+) -> np.ndarray:
+    """
+    Computes the U matrix from a matrix X split in chunks, its singular values and the V matrix
+    The number of columns in U is the same as the number of singular values
+
+    Args:
+        sources (List[Union[str, np.ndarray]]): sources containing the columns of X, expected as 2d chunks
+        s (np.ndarray): singular values of X
+        V (np.ndarray): V matrix of X
+        serializer (Optional[MatrixSerializer], optional): serializer to interpret sources. Defaults to None.
+
+    Returns:
+        np.ndarray: the U matrix
+    """
     if serializer is None:
         serializer = NumpySerializer("")
+
+    if len(s) != V.shape[-1]:
+        raise ValueError(f"s and V must be compatible {len(s)} vs {V.shape[-1]}")
 
     (S_rows, _), S_dtype = peek_chunks_aggregation(sources)
     chunks_cols = [serializer.peek(chunk_fname)[0][1] for chunk_fname in sources]
@@ -316,6 +344,7 @@ def chunked_U(
     for i in range(len(s)):
         if np.abs(s[i]) > 1e-8:
             Vsminus[:, i] /= s[i]
+
     V_i_start = 0
     for j, chunk_fname in enumerate(sources):
         chunk = serializer.load(chunk_fname)
@@ -327,3 +356,29 @@ def chunked_U(
         V_i_start = V_i_end
 
     return U
+
+
+def piecewise_pod(
+    sources: List[Union[str, np.ndarray]],
+    rank_max: int,
+    serializer: Optional[MatrixSerializer] = None,
+) -> Tuple[np.ndarray, np.ndarray]:
+    """
+    Piecewise computation of U and singular values from a matrix stored in sources
+    The precision of singulalr values is limited to 1e-6
+
+    Args:
+        sources (List[Union[str, np.ndarray]]): sources containing the columns of X, expected as 2d chunks
+        rank_max (int): number of columns to extract
+        serializer (Optional[MatrixSerializer], optional): serializer to interpret sources. Defaults to None.
+
+    Returns:
+        Tuple[np.ndarray, np.ndarray]: _description_
+    """
+    s_piecewise, V_piecewise = piecewise_sV(sources, serializer, eigenvtol=1e-16)
+    s_piecewise = s_piecewise[:rank_max]
+    V_piecewise = V_piecewise[:, :rank_max]
+
+    U_piecewise = piecewise_U(sources, s_piecewise, V_piecewise, serializer)
+
+    return U_piecewise, s_piecewise

@@ -58,7 +58,7 @@ def test_randomized_pod_full_rank_1():
     print(U.shape)
     print(U_true.shape)
 
-    ortho = hp.singular_vectors_orthogonality(U[:, mask], U_true[:, mask])
+    ortho = hp.get_singular_vectors_orthogonality(U[:, mask], U_true[:, mask])
     assert np.allclose(ortho, 1)
 
 
@@ -77,7 +77,7 @@ def test_randomized_pod_full_rank_2():
     print(U.shape)
     print(U_true.shape)
 
-    ortho = hp.singular_vectors_orthogonality(U[:, mask], U_true[:, mask])
+    ortho = hp.get_singular_vectors_orthogonality(U[:, mask], U_true[:, mask])
     assert np.allclose(ortho, 1)
 
 
@@ -96,7 +96,7 @@ def test_randomized_pod_full_rank_3():
     print(U.shape)
     print(U_true.shape)
 
-    ortho = hp.singular_vectors_orthogonality(U[:, mask], U_true[:, mask])
+    ortho = hp.get_singular_vectors_orthogonality(U[:, mask], U_true[:, mask])
     assert np.allclose(ortho, 1)
 
 
@@ -112,7 +112,7 @@ def test_randomized_pod_half_rank_1():
     )
     assert get_nonzero_close(s, s_true)
 
-    ortho = hp.singular_vectors_orthogonality(U[:, mask], U_true[:, mask])
+    ortho = hp.get_singular_vectors_orthogonality(U[:, mask], U_true[:, mask])
     assert np.allclose(ortho, 1)
 
 
@@ -128,7 +128,7 @@ def test_randomized_pod_half_rank_2():
     )
     assert get_nonzero_close(s, s_true)
 
-    ortho = hp.singular_vectors_orthogonality(U[:, mask], U_true[:, mask])
+    ortho = hp.get_singular_vectors_orthogonality(U[:, mask], U_true[:, mask])
     assert np.allclose(ortho, 1)
 
 
@@ -144,7 +144,7 @@ def test_randomized_pod_half_rank_3():
     )
     assert get_nonzero_close(s, s_true)
 
-    ortho = hp.singular_vectors_orthogonality(U[:, mask], U_true[:, mask])
+    ortho = hp.get_singular_vectors_orthogonality(U[:, mask], U_true[:, mask])
     assert np.allclose(ortho, 1)
 
 
@@ -166,7 +166,7 @@ def test_randomized_pod_file_1():
         )
         assert get_nonzero_close(s, s_true)
 
-        ortho = hp.singular_vectors_orthogonality(U[:, mask], U_true[:, mask])
+        ortho = hp.get_singular_vectors_orthogonality(U[:, mask], U_true[:, mask])
         assert np.allclose(ortho, 1)
 
 
@@ -188,7 +188,7 @@ def test_randomized_pod_file_2():
         )
         assert get_nonzero_close(s, s_true)
 
-        ortho = hp.singular_vectors_orthogonality(U[:, mask], U_true[:, mask])
+        ortho = hp.get_singular_vectors_orthogonality(U[:, mask], U_true[:, mask])
         assert np.allclose(ortho, 1)
 
 
@@ -210,5 +210,5 @@ def test_randomized_pod_file_3():
         )
         assert get_nonzero_close(s, s_true)
 
-        ortho = hp.singular_vectors_orthogonality(U[:, mask], U_true[:, mask])
+        ortho = hp.get_singular_vectors_orthogonality(U[:, mask], U_true[:, mask])
         assert np.allclose(ortho, 1)

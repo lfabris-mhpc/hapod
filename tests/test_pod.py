@@ -23,7 +23,7 @@ def test_get_pod_full_rank():
     print(U.shape)
     print(U_true.shape)
 
-    ortho = hp.singular_vectors_orthogonality(U[:, mask], U_true[:, mask])
+    ortho = hp.get_singular_vectors_orthogonality(U[:, mask], U_true[:, mask])
     assert np.allclose(ortho, 1)
 
 
@@ -34,5 +34,5 @@ def test_get_pod_half_rank():
     U, s = hp.get_pod(X)
     assert get_nonzero_close(s, s_true)
 
-    ortho = hp.singular_vectors_orthogonality(U[:, mask], U_true[:, mask])
+    ortho = hp.get_singular_vectors_orthogonality(U[:, mask], U_true[:, mask])
     assert np.allclose(ortho, 1)
