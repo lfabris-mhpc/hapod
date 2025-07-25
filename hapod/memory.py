@@ -29,8 +29,10 @@ def get_memory_size() -> int:
         return mem_size_bytes
 
     elif system == "Windows":
-        result = subprocess.run(["wmic", "computersystem", "get", "TotalPhysicalMemory"],
-                                stdout=subprocess.PIPE)
+        result = subprocess.run(
+            ["wmic", "computersystem", "get", "TotalPhysicalMemory"],
+            stdout=subprocess.PIPE,
+        )
         mem_size_bytes = int(result.stdout.decode().split("\n")[1].strip())
         return mem_size_bytes
 
@@ -64,24 +66,28 @@ def get_svd_memory_footprint(shape: Tuple[int], dtype: np.dtype = np.float64) ->
         int: bytes used by the SVD of the given matrix
     """
     v_size = min(shape[-2], shape[-1])
-    return 2.18 * (math.prod(shape) +
-                   (math.prod(shape) // v_size) * v_size + v_size) * np.dtype(dtype).itemsize
+    return (
+        2.18
+        * (math.prod(shape) + (math.prod(shape) // v_size) * v_size + v_size)
+        * np.dtype(dtype).itemsize
+    )
 
 
-def get_randomized_svd_memory_footprint(shape: Tuple[int],
-                                        n_samples: int,
-                                        dtype: np.dtype = np.float64) -> int:
+def get_randomized_svd_memory_footprint(
+    shape: Tuple[int], n_samples: int, dtype: np.dtype = np.float64
+) -> int:
     # return get_matrix_memory_footprint((shape[0], n_samples), dtype) \
     #     + get_matrix_memory_footprint((n_samples, n_samples), dtype) \
     #     + get_svd_memory_footprint((n_samples, shape[-1]), dtype)
 
     return 6.5 * get_matrix_memory_footprint(
-        (shape[0], n_samples), dtype) + get_svd_memory_footprint((n_samples, shape[-1]), dtype)
+        (shape[0], n_samples), dtype
+    ) + get_svd_memory_footprint((n_samples, shape[-1]), dtype)
 
 
-def get_max_svd_columns(n_rows: int,
-                        memory_limit: Optional[int] = None,
-                        dtype: np.dtype = np.float64) -> int:
+def get_max_svd_columns(
+    n_rows: int, memory_limit: Optional[int] = None, dtype: np.dtype = np.float64
+) -> int:
     if memory_limit is None:
         memory_limit = get_memory_size()
     itemsize = np.dtype(dtype).itemsize
@@ -102,7 +108,9 @@ def get_max_svd_columns(n_rows: int,
     return lb
 
 
-def get_max_svd_square(memory_limit: Optional[int] = None, dtype: np.dtype = np.float64) -> int:
+def get_max_svd_square(
+    memory_limit: Optional[int] = None, dtype: np.dtype = np.float64
+) -> int:
     if memory_limit is None:
         memory_limit = get_memory_size()
     itemsize = np.dtype(dtype).itemsize
@@ -125,9 +133,9 @@ def get_max_svd_square(memory_limit: Optional[int] = None, dtype: np.dtype = np.
     return lb
 
 
-def get_max_randomized_svd_samples(shape: Tuple[int],
-                                   memory_limit: Optional[int] = None,
-                                   dtype: np.dtype = np.float64) -> int:
+def get_max_randomized_svd_samples(
+    shape: Tuple[int], memory_limit: Optional[int] = None, dtype: np.dtype = np.float64
+) -> int:
     if memory_limit is None:
         memory_limit = get_memory_size()
     itemsize = np.dtype(dtype).itemsize
@@ -138,7 +146,9 @@ def get_max_randomized_svd_samples(shape: Tuple[int],
     ub = int(memory_limit) // itemsize
     while (ub - lb) > 0:
         n_samples = (ub + lb + 1) // 2
-        ram_req = get_randomized_svd_memory_footprint((n_rows, n_cols), n_samples, dtype)
+        ram_req = get_randomized_svd_memory_footprint(
+            (n_rows, n_cols), n_samples, dtype
+        )
 
         # print(f"bounds {lb, ub}")
         # print(n_samples)
@@ -154,4 +164,4 @@ def get_max_randomized_svd_samples(shape: Tuple[int],
 
 def get_n_chunks_fulltree(n_cols: int, n_chunk_max_cols: int) -> int:
     depth = int(np.ceil(np.log2(n_cols / n_chunk_max_cols)))
-    return 2**max(0, depth)
+    return 2 ** max(0, depth)

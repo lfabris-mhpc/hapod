@@ -1,8 +1,12 @@
 import numpy as np
 
 import hapod as hp
-
-from test_base import *
+from tests.test_base import (
+    get_nonzero_close,
+    get_test_matrix_full_rank,
+    get_test_matrix_half_rank,
+    get_test_matrix_identity,
+)
 
 
 def test_get_pod_eye_s():

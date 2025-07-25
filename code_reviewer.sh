@@ -18,8 +18,9 @@ do
     if [[ -d "${d}" ]]
     then
 	    echo "code folder ${d}"
-	    find ${d} -name "*.py" -exec yapf -i {} + | tee -a ${log}
-	    find ${d} -name "*.py" -exec pylint {} + | tee -a ${log}
+	    #find ${d} -name "*.py" -exec yapf -i {} + | tee -a ${log}
+	    black "${d}"
+		find ${d} -name "*.py" -exec pylint {} + | tee -a ${log}
 
 	    #cd ${d}
 	    #pydoctest --include-paths "../pyironth/*.py"

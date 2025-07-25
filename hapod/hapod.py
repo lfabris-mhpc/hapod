@@ -10,14 +10,18 @@ from hapod.serializer import MatrixSerializer, NumpySerializer
 from hapod.utils import get_pod
 
 
-def hapod(Xs: List[Union[np.ndarray, str]],
-          chunk_rank_max: int,
-          pod_impl: Callable[[np.ndarray, Optional[int]], Tuple[np.ndarray, np.ndarray]] = get_pod,
-          serializer: Optional[MatrixSerializer] = None,
-          temp_work_dir: Optional[str] = None,
-          verbose: bool = False) -> Tuple[np.ndarray, np.ndarray]:
+def hapod(
+    Xs: List[Union[np.ndarray, str]],
+    chunk_rank_max: int,
+    pod_impl: Callable[
+        [np.ndarray, Optional[int]], Tuple[np.ndarray, np.ndarray]
+    ] = get_pod,
+    serializer: Optional[MatrixSerializer] = None,
+    temp_work_dir: Optional[str] = None,
+    verbose: bool = False,
+) -> Tuple[np.ndarray, np.ndarray]:
     """
-    Computes a Hierarchical Approximate Proper Orthogonal Decomposition of the matrix obtained 
+    Computes a Hierarchical Approximate Proper Orthogonal Decomposition of the matrix obtained
     by concatenation of the chunks in Xs.
     The chunks are loaded and merged in pairs, then decomposed using the pod_impl callable.
     If no more chunks remain to process, the U and s arrays are returned.
@@ -25,16 +29,16 @@ def hapod(Xs: List[Union[np.ndarray, str]],
     This approach trades off disk usage for the lack of memory.
 
     Args:
-        Xs (List[Union[np.ndarray, str]]): list of 2d matrices, and/or filenames to be loaded, 
+        Xs (List[Union[np.ndarray, str]]): list of 2d matrices, and/or filenames to be loaded,
             that contain the columns of the matrix to be decomposed
         chunk_rank_max (int): maximum number of singular values from a merge.
-        get_pod (Callable[[np.ndarray, Optional[int]], 
-            Tuple[np.ndarray, np.ndarray]], optional): implementation of POD taking a matrix 
+        get_pod (Callable[[np.ndarray, Optional[int]],
+            Tuple[np.ndarray, np.ndarray]], optional): implementation of POD taking a matrix
                 and a truncation criterion. Defaults to get_pod.
-        serializer (Optional[MatrixSerializer], optional): serializer instance to interpret a 
+        serializer (Optional[MatrixSerializer], optional): serializer instance to interpret a
             chunk when it is not a np.ndarray. If None, it uses NumpySerializer. Defaults to None.
-        temp_work_dir (Optional[str], optional): output directory where the temporary merged 
-            files are stored. If None, a temporary directory is created. 
+        temp_work_dir (Optional[str], optional): output directory where the temporary merged
+            files are stored. If None, a temporary directory is created.
             All files created by hapod will be removed. Defaults to None.
         verbose (bool, optional): whether to print diagnostic messages. Defaults to False.
 
@@ -90,7 +94,7 @@ def hapod(Xs: List[Union[np.ndarray, str]],
                 pass
 
         if work_dir is not temp_work_dir:
-            #delete only if created here
+            # delete only if created here
             shutil.rmtree(work_dir, ignore_errors=True)
 
     try:
@@ -115,18 +119,18 @@ def hapod(Xs: List[Union[np.ndarray, str]],
             if X1_dtype != X2_dtype:
                 raise ValueError("different dtype")
 
-            #better to allocate once and keep no reference
+            # better to allocate once and keep no reference
             X_shape = tuple(list(X1_shape[:-1]) + [X1_shape[-1] + X2_shape[-1]])
             X = np.empty(X_shape, X1_dtype)
-            X[:, :X1_shape[-1]] = serializer.load(X1_source)
-            X[:, X1_shape[-1]:] = serializer.load(X2_source)
+            X[:, : X1_shape[-1]] = serializer.load(X1_source)
+            X[:, X1_shape[-1] :] = serializer.load(X2_source)
             # X = np.concatenate((loader.load(X1_source), loader.load(X2_source)), axis=-1)
             elapsed_merge += time.perf_counter()
             if verbose:
                 print(f"    took {elapsed_merge:.3f}")
 
             if not Xs_local:
-                #last merge is not truncated
+                # last merge is not truncated
                 chunk_rank_max = None
 
             if verbose:
@@ -183,7 +187,7 @@ def hapod(Xs: List[Union[np.ndarray, str]],
                     print(f"    {source_repr(x, serializer)}")
 
         if len(Xs_local) == 1:
-            #the list had a single element
+            # the list had a single element
             X1_source = Xs_local.pop(0)
             X1 = serializer.load(X1_source)
 
@@ -192,7 +196,7 @@ def hapod(Xs: List[Union[np.ndarray, str]],
                 print(f"    {source_repr(X1_source, serializer)}")
 
             elapsed_pod = -time.perf_counter()
-            #last merge is not truncated
+            # last merge is not truncated
             U, s = pod_impl(
                 X1,
                 rank_max=None,

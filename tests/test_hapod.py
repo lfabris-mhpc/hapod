@@ -3,8 +3,12 @@ import tempfile
 import numpy as np
 
 import hapod as hp
-
-from test_utils import *
+from tests.test_base import (
+    get_nonzero_close,
+    get_test_matrix_full_rank,
+    get_test_matrix_half_rank,
+    get_test_matrix_identity,
+)
 
 
 def test_hapod_eye_s_1():

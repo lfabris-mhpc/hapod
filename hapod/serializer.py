@@ -10,10 +10,11 @@ class MatrixSerializer(ABC):
     """
     Abstract base class for loading matrices during hapod
     """
+
     @abstractmethod
     def peek(self, source: Union[np.ndarray, str]) -> Tuple[Tuple[int], np.dtype]:
         """
-        Retrieve the shape and dtype of the source array, 
+        Retrieve the shape and dtype of the source array,
         possibly without loading the entire file in memory
 
         Args:
@@ -74,6 +75,7 @@ class NumpySerializer(MatrixSerializer):
     """
     MatrixLoader specialization to handle numpy .npy and .npz files
     """
+
     def __init__(self, npz_fieldname: Optional[str] = ""):
         """
         Initialization
@@ -95,12 +97,16 @@ class NumpySerializer(MatrixSerializer):
                 with zipfile.ZipFile(source, "r") as archive:
                     fname = f"{self.npz_fieldname}.npy"
                     if not self.npz_fieldname or fname not in archive.namelist():
-                        raise ValueError(f"Field {self.npz_fieldname} not found in the .npz file.")
+                        raise ValueError(
+                            f"Field {self.npz_fieldname} not found in the .npz file."
+                        )
 
                     with archive.open(fname) as fin:
                         magic = np.lib.format.read_magic(fin)
                         if magic[0] != 1:
-                            raise ValueError(f"Unsupported .npy format version in {fname}")
+                            raise ValueError(
+                                f"Unsupported .npy format version in {fname}"
+                            )
 
                         header = np.lib.format.read_array_header_1_0(fin)
                         return header[0], header[2]
@@ -113,7 +119,9 @@ class NumpySerializer(MatrixSerializer):
                 header = np.lib.format.read_array_header_1_0(fin)
                 return header[0], header[2]
 
-        raise TypeError("Source must be either a string (file path) or a numpy.ndarray.")
+        raise TypeError(
+            "Source must be either a string (file path) or a numpy.ndarray."
+        )
 
     def load(self, source: Union[np.ndarray, str]) -> np.ndarray:
         if isinstance(source, np.ndarray):
@@ -128,13 +136,17 @@ class NumpySerializer(MatrixSerializer):
 
                 fname = f"{self.npz_fieldname}.npy"
                 if not self.npz_fieldname or fname not in content:
-                    raise ValueError(f"Field {self.npz_fieldname} not found in the .npz file.")
+                    raise ValueError(
+                        f"Field {self.npz_fieldname} not found in the .npz file."
+                    )
 
                 return content[fname]
 
             return np.load(source)
 
-        raise TypeError("Source must be either a string (file path) or a numpy.ndarray.")
+        raise TypeError(
+            "Source must be either a string (file path) or a numpy.ndarray."
+        )
 
     def store(self, X: np.ndarray, basename: str) -> Union[np.ndarray, str]:
         fname = None
@@ -149,4 +161,4 @@ class NumpySerializer(MatrixSerializer):
         return fname
 
 
-#TODO: OpenFOAMSerializer
+# TODO: OpenFOAMSerializer

@@ -1,3 +1,3 @@
 #!/bin/bash
-
-pytest --cov-report term-missing --cov=hapod tests/
+projname=$( basename $( pwd ) )
+pytest --cov-report term-missing --cov="${projname}" tests/

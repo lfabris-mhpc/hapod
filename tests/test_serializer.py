@@ -4,8 +4,7 @@ import tempfile
 import numpy as np
 
 import hapod as hp
-
-from test_base import *
+from tests.test_base import get_test_matrix_half_rank
 
 
 def test_npy():

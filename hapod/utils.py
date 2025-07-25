@@ -59,14 +59,18 @@ def make_chunks(
         randomizer_rng.shuffle(sources)
 
     if n_chunks is None and n_chunk_max_cols is None:
-        raise ValueError("exactly one of n_chunks and n_chunk_max_cols must be specified")
+        raise ValueError(
+            "exactly one of n_chunks and n_chunk_max_cols must be specified"
+        )
 
     if n_chunks is None:
         n_chunks = n_sources // n_chunk_max_cols
     elif n_chunk_max_cols is None:
         n_chunk_max_cols = int(np.ceil(n_sources / n_chunks))
     else:
-        raise ValueError("exactly one of n_chunks and n_chunk_max_cols must be specified")
+        raise ValueError(
+            "exactly one of n_chunks and n_chunk_max_cols must be specified"
+        )
 
     os.makedirs(output_dir, exist_ok=True)
 
@@ -83,7 +87,7 @@ def make_chunks(
             chunk_size += 1
 
         chunk = np.empty((np.prod(snapshot_shape), chunk_size), dtype=snapshot_dtype)
-        for j, source in enumerate(sources[i_source:i_source + chunk_size]):
+        for j, source in enumerate(sources[i_source : i_source + chunk_size]):
             chunk[:, j] = serializer.load(source).flatten()
 
         chunk_fname = os.path.join(output_dir, f"chunk_{i_chunk:04d}")
@@ -113,10 +117,12 @@ def get_cumulative_energy_ratios(s: np.ndarray) -> np.ndarray:
     return np.cumsum(s**2) / np.sum(s**2)
 
 
-def get_truncation_rank(s: np.ndarray,
-                        rank_max: Optional[int] = None,
-                        magnitude_ratio_max: Optional[float] = None,
-                        res_energy_ratio_max: Optional[float] = None) -> int:
+def get_truncation_rank(
+    s: np.ndarray,
+    rank_max: Optional[int] = None,
+    magnitude_ratio_max: Optional[float] = None,
+    res_energy_ratio_max: Optional[float] = None,
+) -> int:
     """
     Compute the appropriate truncation rank, taken as the tightest
     of the specified thresholds
@@ -149,7 +155,9 @@ def get_truncation_rank(s: np.ndarray,
     return max(1, rmax)
 
 
-def get_pod(X: np.ndarray, rank_max: Optional[int] = None) -> Tuple[np.ndarray, np.ndarray]:
+def get_pod(
+    X: np.ndarray, rank_max: Optional[int] = None
+) -> Tuple[np.ndarray, np.ndarray]:
     """
     Return the truncated modes matrix and singular values of X using numpy.linalg.svd
 
@@ -190,10 +198,13 @@ def peek_chunks_aggregation(
 
         if n_rows and shape[0] != n_rows[-1]:
             raise ValueError(
-                f"chunks must have the same number of rows found {shape[0]} vs {n_rows[-1]}")
+                f"chunks must have the same number of rows found {shape[0]} vs {n_rows[-1]}"
+            )
 
         if dtypes and dtype != dtypes[-1]:
-            raise ValueError(f"chunks must be of the same dtype found {dtype} vs {dtypes[-1]}")
+            raise ValueError(
+                f"chunks must be of the same dtype found {dtype} vs {dtypes[-1]}"
+            )
 
         n_rows.append(shape[0])
         n_cols.append(shape[1])
