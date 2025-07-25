@@ -4,10 +4,10 @@ hapod package
 Submodules
 ----------
 
-hapod.hapod module
-------------------
+hapod.core module
+-----------------
 
-.. automodule:: hapod.hapod
+.. automodule:: hapod.core
    :members:
    :undoc-members:
    :show-inheritance:

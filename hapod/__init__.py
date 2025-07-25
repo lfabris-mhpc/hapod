@@ -1,4 +1,4 @@
-from .hapod import *
+from .core import *
 from .utils import *
 from .serializer import *
 from .memory import *

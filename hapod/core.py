@@ -32,9 +32,7 @@ def hapod(
         Xs (List[Union[np.ndarray, str]]): list of 2d matrices, and/or filenames to be loaded,
             that contain the columns of the matrix to be decomposed
         chunk_rank_max (int): maximum number of singular values from a merge.
-        get_pod (Callable[[np.ndarray, Optional[int]],
-            Tuple[np.ndarray, np.ndarray]], optional): implementation of POD taking a matrix
-                and a truncation criterion. Defaults to get_pod.
+        pod_impl (Callable[ [np.ndarray, Optional[int]], Tuple[np.ndarray, np.ndarray] ], optional): kernel for the pod. Defaults to get_pod.
         serializer (Optional[MatrixSerializer], optional): serializer instance to interpret a
             chunk when it is not a np.ndarray. If None, it uses NumpySerializer. Defaults to None.
         temp_work_dir (Optional[str], optional): output directory where the temporary merged
@@ -43,7 +41,10 @@ def hapod(
         verbose (bool, optional): whether to print diagnostic messages. Defaults to False.
 
     Raises:
-        ValueError: ValueError if Xs is empty
+        ValueError: _description_
+        ValueError: _description_
+        ValueError: _description_
+        ValueError: _description_
 
     Returns:
         Tuple[np.ndarray, np.ndarray]: U 2d matrix of modes as columns, s array of singular values
