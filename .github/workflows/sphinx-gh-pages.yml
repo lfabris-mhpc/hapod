@@ -3,7 +3,7 @@ name: Sphinx to GitHub Pages
 on:
   push:
     branches:
-      - main  # Set a branch name to trigger deployment
+      - main
 
 permissions:
   contents: write
@@ -22,13 +22,10 @@ jobs:
           python-version: 3.11
 
       - name: Install dependencies
-        run: |
-          pip install -e .[docs]
-        # pip install -r docs/requirements.txt  # sphinx, etc.
+        run: pip install -e .[docs]
 
       - name: Build docs
-        run: |
-          sphinx-build -b html docs/source docs/build/html
+        run: sphinx-build -b html docs/source docs/build/html
 
       - name: Deploy
         uses: peaceiris/actions-gh-pages@v4
